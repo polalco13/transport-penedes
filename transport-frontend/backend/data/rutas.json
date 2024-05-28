@@ -1,0 +1,6 @@
+[
+  {"id": 1, "origen": "Barcelona - Sants", "destino": "Vilafranca de Penedès"},
+  {"id": 2, "origen": "Barcelona - M Cristina", "destino": "Vilafranca de Penedès"},
+  {"id": 3, "origen": "Vilafranca de Penedès", "destino": "Barcelona - M Cristina"},
+  {"id": 4, "origen": "Vilafranca de Penedès", "destino": "Barcelona - Sants"}
+]
