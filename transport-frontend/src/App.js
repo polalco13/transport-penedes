@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/react";
 import React, { useState, useEffect } from 'react';
 import rutasData from './data/rutas.json';
 import horariosData from './data/horarios.json';
@@ -160,6 +161,7 @@ function App() {
           ))}
         </ul>
       </div>
+      <Analytics />
     </div>
   );
 }
