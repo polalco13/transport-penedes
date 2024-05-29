@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import rutasData from './data/rutas.json';
+import horariosData from './data/horarios.json';
 import './styles.css';
 
 function App() {
@@ -14,15 +15,8 @@ function App() {
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
   useEffect(() => {
-    const fetchRutas = async () => {
-      try {
-        const response = await axios.get('http://localhost:8000/rutas');
-        setRutas(response.data);
-      } catch (error) {
-        console.error('Error obtenint rutes', error);
-      }
-    };
-    fetchRutas();
+    // Cargar rutas directamente desde el archivo JSON
+    setRutas(rutasData);
   }, []);
 
   useEffect(() => {
@@ -31,45 +25,91 @@ function App() {
         .filter(ruta => ruta.origen === origen)
         .map(ruta => ruta.destino);
       setDestinosDisponibles([...new Set(destinos)]);
-      setDestino(''); // Reset destino when origen changes
+      setDestino(''); // Reset destino cuando cambia el origen
     } else {
       setDestinosDisponibles([]);
     }
   }, [origen, rutas]);
 
-  const buscarProximoBus = async () => {
+  const buscarProximoBus = () => {
     const ara = new Date();
     const horaActual = ara.toTimeString().split(' ')[0].slice(0, 5); // "HH:MM"
     const diaActual = diasSemana[ara.getDay()];
 
-    try {
-      const response = await axios.get('http://localhost:8000/buscar', {
-        params: {
-          origen,
-          destino,
-          dia_semana: diaActual,
-          hora: horaActual
-        }
-      });
-      setResultados(response.data);
-    } catch (error) {
-      console.error('Error cercant horaris', error);
-    }
+    const rutaIds = rutas
+      .filter(ruta => ruta.origen === origen && ruta.destino === destino)
+      .map(ruta => ruta.id);
+
+    let resultados = [];
+
+    horariosData.forEach(horario => {
+      if (rutaIds.includes(horario.ruta_id) && horario.horarios[diaActual]) {
+        const proximosHorarios = horario.horarios[diaActual].filter(hora_salida => {
+          const [horaSalidaHours, horaSalidaMinutes] = hora_salida.split(':').map(Number);
+          const [horaActualHours, horaActualMinutes] = horaActual.split(':').map(Number);
+
+          // Crear objetos Date para comparaciones
+          const horaSalidaDate = new Date();
+          horaSalidaDate.setHours(horaSalidaHours, horaSalidaMinutes, 0, 0);
+
+          const horaActualDate = new Date();
+          horaActualDate.setHours(horaActualHours, horaActualMinutes, 0, 0);
+
+          return horaSalidaDate >= horaActualDate;
+        });
+
+        proximosHorarios.forEach(hora_salida => {
+          resultados.push({
+            ruta_id: horario.ruta_id,
+            estacion: horario.estacion,
+            hora_salida: hora_salida,
+            dia_semana: diaActual
+          });
+        });
+      }
+    });
+
+    // Ordenar los resultados por hora de salida
+    resultados.sort((a, b) => {
+      const [aHours, aMinutes] = a.hora_salida.split(':').map(Number);
+      const [bHours, bMinutes] = b.hora_salida.split(':').map(Number);
+
+      const aDate = new Date();
+      aDate.setHours(aHours, aMinutes, 0, 0);
+
+      const bDate = new Date();
+      bDate.setHours(bHours, bMinutes, 0, 0);
+
+      return aDate - bDate;
+    });
+
+    // Obtener el próximo bus
+    const proximoBus = resultados.length > 0 ? [resultados[0]] : [];
+
+    setResultados(proximoBus);
   };
 
-  const buscarHorariosCompletos = async () => {
-    try {
-      const response = await axios.get('http://localhost:8000/horarios', {
-        params: {
-          origen,
-          destino,
-          dia_semana: diaSemana
-        }
-      });
-      setHorariosCompletos(response.data);
-    } catch (error) {
-      console.error('Error cercant horaris complets', error);
-    }
+  const buscarHorariosCompletos = () => {
+    const rutaIds = rutas
+      .filter(ruta => ruta.origen === origen && ruta.destino === destino)
+      .map(ruta => ruta.id);
+
+    let resultados = [];
+
+    horariosData.forEach(horario => {
+      if (rutaIds.includes(horario.ruta_id) && horario.horarios[diaSemana]) {
+        horario.horarios[diaSemana].forEach(hora_salida => {
+          resultados.push({
+            ruta_id: horario.ruta_id,
+            estacion: horario.estacion,
+            hora_salida: hora_salida,
+            dia_semana: diaSemana
+          });
+        });
+      }
+    });
+
+    setHorariosCompletos(resultados);
   };
 
   return (
