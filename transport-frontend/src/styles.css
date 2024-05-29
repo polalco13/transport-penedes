@@ -1,140 +1,139 @@
 body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: linear-gradient(to right, #0D1B2A, #1C2541);
-    color: #E0E1DD;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-    overflow-y: auto;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(to right, #0D1B2A, #1C2541);
+  color: #E0E1DD;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+.App {
+  text-align: center;
+  padding: 20px;
+  width: 100%;
+}
+
+.App-header {
+  background: linear-gradient(145deg, #1B263B, #2D4059);
+  width: 80vw;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: #E0E1DD;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s ease, background 0.3s ease;
+  overflow-y: visible;
+  max-height: none;
+}
+
+.App-header:hover {
+  transform: scale(1.02);
+  background: linear-gradient(145deg, #2D4059, #1B263B);
+}
+
+h1 {
+  font-size: 2.5em;
+  margin-bottom: 20px;
+  color: #E0E1DD;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+h2 {
+  font-size: 2em;
+  margin-top: 20px;
+  color: #E0E1DD;
+}
+
+label {
+  font-size: 1.2em;
+  color: #A9B8C9;
+  margin-right: 10px;
+}
+
+select, button {
+  font-size: 1em;
+  padding: 10px;
+  margin: 10px;
+  border-radius: 5px;
+  border: 1px solid #A9B8C9;
+  background-color: #3A506B;
+  color: #E0E1DD;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease, transform 0.3s ease, border 0.3s ease;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #5BC0BE;
+  transform: translateY(-2px);
+  border: 1px solid #E0E1DD;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 20px 0;
+}
+
+li {
+  background-color: #1B263B;
+  margin: 10px 0;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease, background-color 0.3s ease, border 0.3s ease;
+  border: 1px solid #A9B8C9;
+}
+
+li:hover {
+  transform: translateY(-5px);
+  background-color: #2E3B4E;
+  border: 1px solid #5BC0BE;
+}
+
+.resultados {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.proximos-buses, .horarios-completos {
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  body {
+    align-items: center;
   }
-  
-  .App {
-    text-align: center;
-    padding: 20px;
-    width: 100%;
-  }
-  
+
   .App-header {
-    background: linear-gradient(145deg, #1B263B, #2D4059);
-    width: 80vw;
-    max-width: 800px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: #E0E1DD;
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-    transition: transform 0.3s ease, background 0.3s ease;
-    overflow-y: visible;
-    max-height: none;
-  }
-  
-  .App-header:hover {
-    transform: scale(1.02);
-    background: linear-gradient(145deg, #2D4059, #1B263B);
-  }
-  
-  h1 {
-    font-size: 2.5em;
-    margin-bottom: 20px;
-    color: #E0E1DD;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  }
-  
-  h2 {
-    font-size: 2em;
-    margin-top: 20px;
-    color: #E0E1DD;
-  }
-  
-  label {
-    font-size: 1.2em;
-    color: #A9B8C9;
-    margin-right: 10px;
-  }
-  
-  select, button {
-    font-size: 1em;
-    padding: 10px;
-    margin: 10px;
-    border-radius: 5px;
-    border: 1px solid #A9B8C9;
-    background-color: #3A506B;
-    color: #E0E1DD;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: background-color 0.3s ease, transform 0.3s ease, border 0.3s ease;
-  }
-  
-  button {
-    cursor: pointer;
-  }
-  
-  button:hover {
-    background-color: #5BC0BE;
-    transform: translateY(-2px);
-    border: 1px solid #E0E1DD;
-  }
-  
-  ul {
-    list-style-type: none;
-    padding: 0;
-    margin: 20px 0;
-  }
-  
-  li {
-    background-color: #1B263B;
-    margin: 10px 0;
+    width: 95vw;
     padding: 15px;
-    border-radius: 5px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: transform 0.3s ease, background-color 0.3s ease, border 0.3s ease;
-    border: 1px solid #A9B8C9;
   }
-  
-  li:hover {
-    transform: translateY(-5px);
-    background-color: #2E3B4E;
-    border: 1px solid #5BC0BE;
+
+  h1 {
+    font-size: 2em;
   }
-  
-  .resultados {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
+
+  select, button {
+    font-size: 0.9em;
+    padding: 8px;
   }
-  
-  .proximos-buses, .horarios-completos {
-    width: 100%;
+
+  label {
+    font-size: 1em;
   }
-  
-  @media (max-width: 600px) {
-    body {
-      align-items: center; /* Center the content vertically on mobile */
-    }
-  
-    .App-header {
-      width: 95vw;
-      padding: 15px;
-    }
-  
-    h1 {
-      font-size: 2em;
-    }
-  
-    select, button {
-      font-size: 0.9em;
-      padding: 8px;
-    }
-  
-    label {
-      font-size: 1em;
-    }
-  }
-  
+}

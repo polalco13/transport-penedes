@@ -13,5 +13,9 @@
   {"id": 10, "origen": "Barcelona - Bus Nit", "destino": "Sant Sadurní d'Anoia"},
   {"id": 10, "origen": "Barcelona - Bus Nit", "destino": "Vilafranca de Penedès"},
   {"id": 11, "origen": "Vilafranca de Penedès", "destino": "Barcelona - Bus Nit"},
-  {"id": 12, "origen": "Sant Sadurní d'Anoia", "destino": "Barcelona - Bus Nit"}
+  {"id": 12, "origen": "Sant Sadurní d'Anoia", "destino": "Barcelona - Bus Nit"},
+  {"id": 13, "origen": "Vilanova i la Geltrú", "destino": "Vilafranca de Penedès"},
+  {"id": 14, "origen": "Vilafranca de Penedès", "destino": "Vilanova i la Geltrú"},
+  {"id": 15, "origen": "Font-Rubí", "destino": "Vilafranca de Penedès"},
+  {"id": 16, "origen": "Vilafranca de Penedès", "destino": "Font-Rubí"}
 ]
