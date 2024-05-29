@@ -9,5 +9,9 @@
   {"id": 7, "origen": "Cerdanyola - UAB", "destino": "Vilafranca de Penedès"},
   {"id": 7, "origen": "Cerdanyola - UAB", "destino": "Sant Sadurní d'Anoia"},
   {"id": 8, "origen": "Sant Sadurní d'Anoia", "destino": "Barcelona - M Cristina"},
-  {"id": 9, "origen": "Barcelona - M Cristina", "destino": "Sant Sadurní d'Anoia"}
+  {"id": 9, "origen": "Barcelona - M Cristina", "destino": "Sant Sadurní d'Anoia"},
+  {"id": 10, "origen": "Barcelona - Bus Nit", "destino": "Sant Sadurní d'Anoia"},
+  {"id": 10, "origen": "Barcelona - Bus Nit", "destino": "Vilafranca de Penedès"},
+  {"id": 11, "origen": "Vilafranca de Penedès", "destino": "Barcelona - Bus Nit"},
+  {"id": 12, "origen": "Sant Sadurní d'Anoia", "destino": "Barcelona - Bus Nit"}
 ]

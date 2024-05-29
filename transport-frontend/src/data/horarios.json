@@ -187,5 +187,44 @@
       "Dissabte": [],
       "Diumenge": []
     }
+  },
+  {
+    "ruta_id": 10,
+    "estacion": "BCN - Rda. Universitat 21",
+    "horarios": {
+      "Dilluns": [],
+      "Dimarts":[],
+      "Dimecres": [],
+      "Dijous": [],
+      "Divendres": ["1:15",  "4:30"],
+      "Dissabte": ["1:15",  "4:30"],
+      "Diumenge": []
+    }
+  },
+  {
+    "ruta_id": 11,
+    "estacion": "Vilafranca del Penedès E.A.",
+    "horarios": {
+      "Dilluns": [],
+      "Dimarts":[],
+      "Dimecres": [],
+      "Dijous": [],
+      "Divendres": ["0:10", "3:25", "5:47"],
+      "Dissabte": ["0:10", "3:25", "5:47"],
+      "Diumenge": []
+    }
+  },
+  {
+    "ruta_id": 12,
+    "estacion": "St. Sadurní (Pont Romà)",
+    "horarios": {
+      "Dilluns": [],
+      "Dimarts":[],
+      "Dimecres": [],
+      "Dijous": [],
+      "Divendres": ["0:23", "3:38", "6:00"],
+      "Dissabte": ["0:23", "3:38", "6:00"],
+      "Diumenge": []
+    }
   }
 ]
