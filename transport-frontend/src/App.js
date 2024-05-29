@@ -134,7 +134,7 @@ function App() {
             ))}
           </select>
         </div>
-        <button onClick={buscarProximoBus}>Buscar Pròxim Bus</button>
+        <button onClick={buscarProximoBus}>Buscar següents busos</button>
         <ul>
           {resultados.map((horario, index) => (
             <li key={index}>
