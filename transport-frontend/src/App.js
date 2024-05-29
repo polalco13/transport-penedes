@@ -83,10 +83,10 @@ function App() {
       return aDate - bDate;
     });
 
-    // Obtener el próximo bus
-    const proximoBus = resultados.length > 0 ? [resultados[0]] : [];
+    // Obtener los próximos tres buses
+    const proximosBuses = resultados.slice(0, 3);
 
-    setResultados(proximoBus);
+    setResultados(proximosBuses);
   };
 
   const buscarHorariosCompletos = () => {

@@ -1,37 +1,59 @@
 body {
     margin: 0;
     font-family: 'Arial', sans-serif;
-    background-color: #f0f0f0;
+    background-color: #0D1B2A;
+    color: #E0E1DD;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Cambiado a flex-start para que el contenido comience desde arriba */
+    min-height: 100vh;
+    overflow-y: auto;
   }
   
   .App {
     text-align: center;
     padding: 20px;
+    width: 100%;
   }
   
   .App-header {
-    background-color: #ffffff;
-    min-height: 100vh;
+    background-color: #1B263B;
+    width: 80vw;
+    max-width: 800px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     font-size: calc(10px + 2vmin);
-    color: #333;
+    color: #E0E1DD;
     padding: 20px;
     border-radius: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s ease;
+    overflow-y: visible; /* Cambiado a visible */
+    max-height: none; /* Eliminado para permitir crecimiento */
+  }
+  
+  .App-header:hover {
+    transform: scale(1.02);
   }
   
   h1 {
-    font-size: 2em;
+    font-size: 2.5em;
     margin-bottom: 20px;
-    color: #444;
+    color: #E0E1DD;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  h2 {
+    font-size: 2em;
+    margin-top: 20px;
+    color: #E0E1DD;
   }
   
   label {
     font-size: 1.2em;
-    color: #444;
+    color: #778DA9;
     margin-right: 10px;
   }
   
@@ -40,21 +62,20 @@ body {
     padding: 10px;
     margin: 10px;
     border-radius: 5px;
-    border: 1px solid #ccc;
-    background-color: #f9f9f9;
-    color: #333;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid #415A77;
+    background-color: #415A77;
+    color: #E0E1DD;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.3s ease, transform 0.3s ease;
   }
   
   button {
-    background-color: #4a90e2;
-    color: white;
-    border: none;
     cursor: pointer;
   }
   
   button:hover {
-    background-color: #357abd;
+    background-color: #778DA9;
+    transform: translateY(-2px);
   }
   
   ul {
@@ -64,24 +85,46 @@ body {
   }
   
   li {
-    background-color: #f9f9f9;
+    background-color: #1B263B;
     margin: 10px 0;
     padding: 15px;
     border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+  }
+  
+  li:hover {
+    transform: translateY(-5px);
+  }
+  
+  .resultados {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .proximos-buses, .horarios-completos {
+    width: 100%;
   }
   
   @media (max-width: 600px) {
-    .App {
-      padding: 10px;
+    .App-header {
+      width: 95vw;
+      max-height: none; /* Eliminado para permitir crecimiento */
     }
   
     h1 {
-      font-size: 1.8em;
+      font-size: 2em;
     }
   
     select, button {
       font-size: 0.9em;
+    }
+  
+    .resultados {
+      flex-direction: column;
     }
   }
   
