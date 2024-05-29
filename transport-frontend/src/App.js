@@ -7,6 +7,7 @@ function App() {
   const [destino, setDestino] = useState('');
   const [resultados, setResultados] = useState([]);
   const [rutas, setRutas] = useState([]);
+  const [destinosDisponibles, setDestinosDisponibles] = useState([]);
   const [diaSemana, setDiaSemana] = useState('');
   const [horariosCompletos, setHorariosCompletos] = useState([]);
 
@@ -23,6 +24,18 @@ function App() {
     };
     fetchRutas();
   }, []);
+
+  useEffect(() => {
+    if (origen) {
+      const destinos = rutas
+        .filter(ruta => ruta.origen === origen)
+        .map(ruta => ruta.destino);
+      setDestinosDisponibles([...new Set(destinos)]);
+      setDestino(''); // Reset destino when origen changes
+    } else {
+      setDestinosDisponibles([]);
+    }
+  }, [origen, rutas]);
 
   const buscarProximoBus = async () => {
     const ara = new Date();
@@ -74,9 +87,9 @@ function App() {
         </div>
         <div>
           <label>Destí:</label>
-          <select value={destino} onChange={e => setDestino(e.target.value)}>
+          <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
             <option value="">Selecciona destí</option>
-            {[...new Set(rutas.map(ruta => ruta.destino))].map((destino, index) => (
+            {destinosDisponibles.map((destino, index) => (
               <option key={index} value={destino}>{destino}</option>
             ))}
           </select>

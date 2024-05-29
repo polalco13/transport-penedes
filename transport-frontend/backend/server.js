@@ -34,18 +34,46 @@ app.get('/buscar', (req, res) => {
 
   horarios.forEach(horario => {
     if (rutaIds.includes(horario.ruta_id) && horario.horarios[dia_semana]) {
-      const proximosHorarios = horario.horarios[dia_semana].filter(hora_salida => hora_salida >= hora);
-      if (proximosHorarios.length > 0) {
+      const proximosHorarios = horario.horarios[dia_semana].filter(hora_salida => {
+        const [horaSalidaHours, horaSalidaMinutes] = hora_salida.split(':').map(Number);
+        const [horaActualHours, horaActualMinutes] = hora.split(':').map(Number);
+
+        // Crear objetos Date para comparaciones
+        const horaSalidaDate = new Date();
+        horaSalidaDate.setHours(horaSalidaHours, horaSalidaMinutes, 0, 0);
+
+        const horaActualDate = new Date();
+        horaActualDate.setHours(horaActualHours, horaActualMinutes, 0, 0);
+
+        return horaSalidaDate >= horaActualDate;
+      });
+
+      proximosHorarios.forEach(hora_salida => {
         resultados.push({
           ruta_id: horario.ruta_id,
           estacion: horario.estacion,
-          hora_salida: proximosHorarios[0],
+          hora_salida: hora_salida,
           dia_semana: dia_semana
         });
-      }
+      });
     }
   });
 
+  // Ordenar los resultados por hora de salida
+  resultados.sort((a, b) => {
+    const [aHours, aMinutes] = a.hora_salida.split(':').map(Number);
+    const [bHours, bMinutes] = b.hora_salida.split(':').map(Number);
+
+    const aDate = new Date();
+    aDate.setHours(aHours, aMinutes, 0, 0);
+
+    const bDate = new Date();
+    bDate.setHours(bHours, bMinutes, 0, 0);
+
+    return aDate - bDate;
+  });
+
+  // Obtener el próximo bus
   const proximoBus = resultados.length > 0 ? [resultados[0]] : [];
 
   console.log('Pròxim bus trobat:', proximoBus);

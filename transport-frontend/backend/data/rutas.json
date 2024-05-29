@@ -2,5 +2,12 @@
   {"id": 1, "origen": "Barcelona - Sants", "destino": "Vilafranca de Penedès"},
   {"id": 2, "origen": "Barcelona - M Cristina", "destino": "Vilafranca de Penedès"},
   {"id": 3, "origen": "Vilafranca de Penedès", "destino": "Barcelona - M Cristina"},
-  {"id": 4, "origen": "Vilafranca de Penedès", "destino": "Barcelona - Sants"}
+  {"id": 4, "origen": "Vilafranca de Penedès", "destino": "Barcelona - Sants"},
+  {"id": 5, "origen": "Vilafranca de Penedès", "destino": "Cerdanyola - UAB"},
+  {"id": 5, "origen": "Vilafranca de Penedès", "destino": "Sant Sadurní d'Anoia"},
+  {"id": 6, "origen": "Sant Sadurní d'Anoia", "destino": "Cerdanyola - UAB"},
+  {"id": 7, "origen": "Cerdanyola - UAB", "destino": "Vilafranca de Penedès"},
+  {"id": 7, "origen": "Cerdanyola - UAB", "destino": "Sant Sadurní d'Anoia"},
+  {"id": 8, "origen": "Sant Sadurní d'Anoia", "destino": "Barcelona - M Cristina"},
+  {"id": 9, "origen": "Barcelona - M Cristina", "destino": "Sant Sadurní d'Anoia"}
 ]
