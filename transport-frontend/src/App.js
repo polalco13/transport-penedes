@@ -153,7 +153,7 @@ function App() {
               </select>
             </div>
           </div>
-          <button className="swap-button" onClick={intercambiarOrigenDestino}>↔️</button>
+          <button className="swap-button" onClick={intercambiarOrigenDestino}>⇄</button>
         </div>
         <button onClick={buscarProximoBus}>Buscar següents busos</button>
         <ul>
