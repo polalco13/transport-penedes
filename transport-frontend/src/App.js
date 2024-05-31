@@ -26,7 +26,6 @@ function App() {
         .filter(ruta => ruta.origen === origen)
         .map(ruta => ruta.destino);
       setDestinosDisponibles([...new Set(destinos)]);
-      setDestino(''); // Reset destino cuando cambia el origen
     } else {
       setDestinosDisponibles([]);
     }
@@ -113,27 +112,46 @@ function App() {
     setHorariosCompletos(resultados);
   };
 
+  const intercambiarOrigenDestino = () => {
+    const nuevoOrigen = destino;
+    const nuevoDestino = origen;
+    setOrigen(nuevoOrigen);
+    setDestino(nuevoDestino);
+
+    if (nuevoOrigen) {
+      const destinos = rutas
+        .filter(ruta => ruta.origen === nuevoOrigen)
+        .map(ruta => ruta.destino);
+      setDestinosDisponibles([...new Set(destinos)]);
+    } else {
+      setDestinosDisponibles([]);
+    }
+  };
+
   return (
     <div className="App">
       <div className="App-header">
         <h1>Transport Públic del Penedès</h1>
-        <div>
-          <label>Origen:</label>
-          <select value={origen} onChange={e => setOrigen(e.target.value)}>
-            <option value="">Selecciona origen</option>
-            {[...new Set(rutas.map(ruta => ruta.origen))].map((origen, index) => (
-              <option key={index} value={origen}>{origen}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label>Destí:</label>
-          <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
-            <option value="">Selecciona destí</option>
-            {destinosDisponibles.map((destino, index) => (
-              <option key={index} value={destino}>{destino}</option>
-            ))}
-          </select>
+        <div className="form-group">
+          <div className="form-field">
+            <label>Origen:</label>
+            <select value={origen} onChange={e => setOrigen(e.target.value)}>
+              <option value="">Selecciona</option>
+              {[...new Set(rutas.map(ruta => ruta.origen))].map((origen, index) => (
+                <option key={index} value={origen}>{origen}</option>
+              ))}
+            </select>
+          </div>
+          <button className="swap-button" onClick={intercambiarOrigenDestino}>↔️</button>
+          <div className="form-field">
+            <label>Destí:</label>
+            <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
+              <option value="">Selecciona</option>
+              {destinosDisponibles.map((destino, index) => (
+                <option key={index} value={destino}>{destino}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <button onClick={buscarProximoBus}>Buscar següents busos</button>
         <ul>
