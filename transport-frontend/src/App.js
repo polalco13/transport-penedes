@@ -133,25 +133,27 @@ function App() {
       <div className="App-header">
         <h1>Transport Públic del Penedès</h1>
         <div className="form-group">
-          <div className="form-field">
-            <label>Origen:</label>
-            <select value={origen} onChange={e => setOrigen(e.target.value)}>
-              <option value="">Selecciona</option>
-              {[...new Set(rutas.map(ruta => ruta.origen))].map((origen, index) => (
-                <option key={index} value={origen}>{origen}</option>
-              ))}
-            </select>
+          <div className="form-fields">
+            <div className="form-field">
+              <label>Origen:</label>
+              <select value={origen} onChange={e => setOrigen(e.target.value)}>
+                <option value="">Selecciona</option>
+                {[...new Set(rutas.map(ruta => ruta.origen))].map((origen, index) => (
+                  <option key={index} value={origen}>{origen}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Destí:</label>
+              <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
+                <option value="">Selecciona</option>
+                {destinosDisponibles.map((destino, index) => (
+                  <option key={index} value={destino}>{destino}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <button className="swap-button" onClick={intercambiarOrigenDestino}>↔️</button>
-          <div className="form-field">
-            <label>Destí:</label>
-            <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
-              <option value="">Selecciona</option>
-              {destinosDisponibles.map((destino, index) => (
-                <option key={index} value={destino}>{destino}</option>
-              ))}
-            </select>
-          </div>
         </div>
         <button onClick={buscarProximoBus}>Buscar següents busos</button>
         <ul>
