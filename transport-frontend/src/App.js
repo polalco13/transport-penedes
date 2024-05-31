@@ -12,6 +12,7 @@ function App() {
   const [destinosDisponibles, setDestinosDisponibles] = useState([]);
   const [diaSemana, setDiaSemana] = useState('');
   const [horariosCompletos, setHorariosCompletos] = useState([]);
+  const [mostrarHorarios, setMostrarHorarios] = useState(false);
 
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
@@ -89,9 +90,9 @@ function App() {
     setResultados(proximosBuses);
   };
 
-  const buscarHorariosCompletos = () => {
+  const buscarHorariosCompletos = (origenBus, destinoBus) => {
     const rutaIds = rutas
-      .filter(ruta => ruta.origen === origen && ruta.destino === destino)
+      .filter(ruta => ruta.origen === origenBus && ruta.destino === destinoBus)
       .map(ruta => ruta.id);
 
     let resultados = [];
@@ -128,6 +129,16 @@ function App() {
     }
 
     buscarProximoBus(nuevoOrigen, nuevoDestino); // Call buscarProximoBus with new origin and destination
+    if (mostrarHorarios) {
+      buscarHorariosCompletos(nuevoOrigen, nuevoDestino); // Update horarios completos if they are being shown
+    }
+  };
+
+  const toggleMostrarHorarios = () => {
+    setMostrarHorarios(!mostrarHorarios);
+    if (!mostrarHorarios) {
+      buscarHorariosCompletos(origen, destino);
+    }
   };
 
   return (
@@ -173,15 +184,19 @@ function App() {
               <option key={index} value={dia}>{dia}</option>
             ))}
           </select>
-          <button onClick={buscarHorariosCompletos}>Mostrar Horaris</button>
+          <button onClick={toggleMostrarHorarios}>
+            {mostrarHorarios ? 'Amagar Horaris' : 'Mostrar Horaris'}
+          </button>
         </div>
-        <ul>
-          {horariosCompletos.map((horario, index) => (
-            <li key={index}>
-              {horario.estacion} - {horario.hora_salida} ({horario.dia_semana})
-            </li>
-          ))}
-        </ul>
+        {mostrarHorarios && (
+          <ul>
+            {horariosCompletos.map((horario, index) => (
+              <li key={index}>
+                {horario.estacion} - {horario.hora_salida} ({horario.dia_semana})
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <Analytics />
     </div>
