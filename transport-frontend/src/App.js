@@ -31,13 +31,13 @@ function App() {
     }
   }, [origen, rutas]);
 
-  const buscarProximoBus = () => {
+  const buscarProximoBus = (origenBus, destinoBus) => {
     const ara = new Date();
     const horaActual = ara.toTimeString().split(' ')[0].slice(0, 5); // "HH:MM"
     const diaActual = diasSemana[ara.getDay()];
 
     const rutaIds = rutas
-      .filter(ruta => ruta.origen === origen && ruta.destino === destino)
+      .filter(ruta => ruta.origen === origenBus && ruta.destino === destinoBus)
       .map(ruta => ruta.id);
 
     let resultados = [];
@@ -126,6 +126,8 @@ function App() {
     } else {
       setDestinosDisponibles([]);
     }
+
+    buscarProximoBus(nuevoOrigen, nuevoDestino); // Call buscarProximoBus with new origin and destination
   };
 
   return (
@@ -155,7 +157,7 @@ function App() {
           </div>
           <button className="swap-button" onClick={intercambiarOrigenDestino}>⇄</button>
         </div>
-        <button onClick={buscarProximoBus}>Buscar següents busos</button>
+        <button onClick={() => buscarProximoBus(origen, destino)}>Buscar següents busos</button>
         <ul>
           {resultados.map((horario, index) => (
             <li key={index}>
