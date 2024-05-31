@@ -13,6 +13,7 @@ function App() {
   const [diaSemana, setDiaSemana] = useState('');
   const [horariosCompletos, setHorariosCompletos] = useState([]);
   const [mostrarHorarios, setMostrarHorarios] = useState(false);
+  const [mensajeNoMasBuses, setMensajeNoMasBuses] = useState('');
 
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
@@ -88,6 +89,11 @@ function App() {
     const proximosBuses = resultados.slice(0, 3);
 
     setResultados(proximosBuses);
+    if (proximosBuses.length === 0) {
+      setMensajeNoMasBuses('No hi ha més autobusos per avui');
+    } else {
+      setMensajeNoMasBuses('');
+    }
   };
 
   const buscarHorariosCompletos = (origenBus, destinoBus) => {
@@ -169,6 +175,7 @@ function App() {
           <button className="swap-button" onClick={intercambiarOrigenDestino}>⇄</button>
         </div>
         <button onClick={() => buscarProximoBus(origen, destino)}>Buscar següents busos</button>
+        {mensajeNoMasBuses && <p>{mensajeNoMasBuses}</p>}
         <ul>
           {resultados.map((horario, index) => (
             <li key={index}>
