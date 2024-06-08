@@ -34,12 +34,19 @@ function App() {
   const [mostrarHorarios, setMostrarHorarios] = useState(false);
   const [mensajeNoMasBuses, setMensajeNoMasBuses] = useState('');
   const [mostrarPopup, setMostrarPopup] = useState(false);
+  const [rutaPredeterminada, setRutaPredeterminada] = useState('');
 
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
   useEffect(() => {
     // Cargar rutas directamente desde el archivo JSON
     setRutas(rutasData);
+
+    // Cargar la ruta predeterminada del almacenamiento local
+    const rutaGuardada = localStorage.getItem('rutaPredeterminada');
+    if (rutaGuardada) {
+      setRutaPredeterminada(rutaGuardada);
+    }
   }, []);
 
   useEffect(() => {
@@ -52,6 +59,23 @@ function App() {
       setDestinosDisponibles([]);
     }
   }, [origen, rutas]);
+
+  useEffect(() => {
+    // Guardar la ruta predeterminada en el almacenamiento local
+    localStorage.setItem('rutaPredeterminada', rutaPredeterminada);
+  }, [rutaPredeterminada]);
+
+  useEffect(() => {
+    if (origen) {
+      const destinos = rutas
+        .filter(ruta => ruta.origen === origen)
+        .map(ruta => ruta.destino);
+      setDestinosDisponibles([...new Set(destinos)]);
+    } else {
+      setDestinosDisponibles([]);
+    }
+  }, [origen, rutas]);
+
 
   const buscarProximoBus = (origenBus, destinoBus) => {
     const ara = new Date();
@@ -167,6 +191,51 @@ function App() {
     }
   };
 
+  const detectarUbicacion = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+      
+        console.log(`Latitud: ${latitude}, Longitud: ${longitude}`); // Debug: imprimir coordenadas
+      
+        if (!Array.isArray(rutasData) || !rutasData.length) {
+          console.error('rutasData está vacío o no es un array');
+          return;
+        }
+      
+        let distanciaMinima = Infinity;
+        let origenCercano = '';
+      
+        rutasData.forEach(ruta => {
+          if (typeof ruta.latitud_origen !== 'number' || typeof ruta.longitud_origen !== 'number') {
+            console.error('Una ruta no tiene latitud y/o longitud válida', ruta);
+            return;
+          }
+        
+          const distancia = Math.sqrt(
+            Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
+          );
+        
+          if (distancia < distanciaMinima) {
+            distanciaMinima = distancia;
+            origenCercano = ruta.origen;
+          }
+        });
+      
+        if (!origenCercano) {
+          console.error('No se encontró un origen cercano');
+          return;
+        }
+      
+        console.log(`Origen cercano: ${origenCercano}`); // Debug: imprimir origen cercano
+      
+        setOrigen(origenCercano);
+      });
+    } else {
+      alert('Geolocalización no soportada por tu navegador');
+    }
+  };
+
   return (
     <div className="App">
       <div className="App-header">
@@ -177,19 +246,20 @@ function App() {
               <label>Origen:</label>
               <select value={origen} onChange={e => setOrigen(e.target.value)}>
                 <option value="">Selecciona</option>
-                {[...new Set(rutas.map(ruta => ruta.origen))].map((origen, index) => (
+                {[...new Set(rutas.map(ruta => ruta.origen))].sort().map((origen, index) => (
                   <option key={index} value={origen}>{origen}</option>
                 ))}
               </select>
+              <button onClick={detectarUbicacion}>Detectar ubicació propera</button>
             </div>
             <div className="form-field">
               <label>Destí:</label>
-              <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
-                <option value="">Selecciona</option>
-                {destinosDisponibles.map((destino, index) => (
-                  <option key={index} value={destino}>{destino}</option>
-                ))}
-              </select>
+                <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
+                  <option value="">Selecciona</option>
+                  {destinosDisponibles.sort().map((destino, index) => (
+                    <option key={index} value={destino}>{destino}</option>
+                  ))}
+                </select>
             </div>
           </div>
           <button className="swap-button" onClick={intercambiarOrigenDestino}>⇄</button>
