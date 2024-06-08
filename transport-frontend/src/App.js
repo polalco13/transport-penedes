@@ -2,9 +2,28 @@ import { Analytics } from "@vercel/analytics/react";
 import React, { useState, useEffect } from 'react';
 import rutasData from './data/rutas.json';
 import horariosData from './data/horarios.json';
+import Noticia3d8 from './noticies/Noticia3d8.jpg';
+
 import './styles.css';
 
+function Popup({ mostrar, onClose }) {
+  
+  if (!mostrar) {
+    return null;
+  }
+
+  return (
+    <div className="popup-overlay">
+      <div className="popup">
+        <button className="close-button" onClick={onClose}>X</button>
+        <img src={Noticia3d8} alt="Noticia 3d8" />
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
   const [resultados, setResultados] = useState([]);
@@ -14,6 +33,7 @@ function App() {
   const [horariosCompletos, setHorariosCompletos] = useState([]);
   const [mostrarHorarios, setMostrarHorarios] = useState(false);
   const [mensajeNoMasBuses, setMensajeNoMasBuses] = useState('');
+  const [mostrarPopup, setMostrarPopup] = useState(false);
 
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
@@ -205,6 +225,8 @@ function App() {
           </ul>
         )}
       </div>
+      <button className="noticia-button" onClick={() => setMostrarPopup(true)}>Noticia 3d8</button>
+      <Popup mostrar={mostrarPopup} onClose={() => setMostrarPopup(false)} />
       <Analytics />
     </div>
   );
