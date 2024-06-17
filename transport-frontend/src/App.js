@@ -7,7 +7,6 @@ import Noticia3d8 from './noticies/Noticia3d8.jpg';
 import './styles.css';
 
 function Popup({ mostrar, onClose }) {
-  
   if (!mostrar) {
     return null;
   }
@@ -23,7 +22,6 @@ function Popup({ mostrar, onClose }) {
 }
 
 function App() {
-  
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
   const [resultados, setResultados] = useState([]);
@@ -35,17 +33,22 @@ function App() {
   const [mensajeNoMasBuses, setMensajeNoMasBuses] = useState('');
   const [mostrarPopup, setMostrarPopup] = useState(false);
   const [rutaPredeterminada, setRutaPredeterminada] = useState('');
+  const [favoritos, setFavoritos] = useState([]);
+  const [mostrarFavoritos, setMostrarFavoritos] = useState(false); // Estado para mostrar/ocultar la sección de favoritos
 
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
   useEffect(() => {
-    // Cargar rutas directamente desde el archivo JSON
     setRutas(rutasData);
 
-    // Cargar la ruta predeterminada del almacenamiento local
     const rutaGuardada = localStorage.getItem('rutaPredeterminada');
     if (rutaGuardada) {
       setRutaPredeterminada(rutaGuardada);
+    }
+
+    const favoritosGuardados = JSON.parse(localStorage.getItem('favoritos'));
+    if (favoritosGuardados) {
+      setFavoritos(favoritosGuardados);
     }
   }, []);
 
@@ -61,21 +64,20 @@ function App() {
   }, [origen, rutas]);
 
   useEffect(() => {
-    // Guardar la ruta predeterminada en el almacenamiento local
     localStorage.setItem('rutaPredeterminada', rutaPredeterminada);
   }, [rutaPredeterminada]);
 
   useEffect(() => {
-    if (origen) {
-      const destinos = rutas
-        .filter(ruta => ruta.origen === origen)
-        .map(ruta => ruta.destino);
-      setDestinosDisponibles([...new Set(destinos)]);
-    } else {
-      setDestinosDisponibles([]);
-    }
-  }, [origen, rutas]);
+    localStorage.setItem('favoritos', JSON.stringify(favoritos));
+  }, [favoritos]);
 
+  useEffect(() => {
+    setDestino('');
+    setResultados([]);
+    setHorariosCompletos([]);
+    setMostrarHorarios(false);
+    setMensajeNoMasBuses('');
+  }, [origen]);
 
   const buscarProximoBus = (origenBus, destinoBus) => {
     const ara = new Date();
@@ -94,7 +96,6 @@ function App() {
           const [horaSalidaHours, horaSalidaMinutes] = hora_salida.split(':').map(Number);
           const [horaActualHours, horaActualMinutes] = horaActual.split(':').map(Number);
 
-          // Crear objetos Date para comparaciones
           const horaSalidaDate = new Date();
           horaSalidaDate.setHours(horaSalidaHours, horaSalidaMinutes, 0, 0);
 
@@ -115,7 +116,6 @@ function App() {
       }
     });
 
-    // Ordenar los resultados por hora de salida
     resultados.sort((a, b) => {
       const [aHours, aMinutes] = a.hora_salida.split(':').map(Number);
       const [bHours, bMinutes] = b.hora_salida.split(':').map(Number);
@@ -129,7 +129,6 @@ function App() {
       return aDate - bDate;
     });
 
-    // Obtener los próximos tres buses
     const proximosBuses = resultados.slice(0, 3);
 
     setResultados(proximosBuses);
@@ -178,9 +177,9 @@ function App() {
       setDestinosDisponibles([]);
     }
 
-    buscarProximoBus(nuevoOrigen, nuevoDestino); // Call buscarProximoBus with new origin and destination
+    buscarProximoBus(nuevoOrigen, nuevoDestino);
     if (mostrarHorarios) {
-      buscarHorariosCompletos(nuevoOrigen, nuevoDestino); // Update horarios completos if they are being shown
+      buscarHorariosCompletos(nuevoOrigen, nuevoDestino);
     }
   };
 
@@ -195,45 +194,47 @@ function App() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(position => {
         const { latitude, longitude } = position.coords;
-      
-        console.log(`Latitud: ${latitude}, Longitud: ${longitude}`); // Debug: imprimir coordenadas
-      
-        if (!Array.isArray(rutasData) || !rutasData.length) {
-          console.error('rutasData está vacío o no es un array');
-          return;
-        }
-      
+
         let distanciaMinima = Infinity;
         let origenCercano = '';
-      
+
         rutasData.forEach(ruta => {
-          if (typeof ruta.latitud_origen !== 'number' || typeof ruta.longitud_origen !== 'number') {
-            console.error('Una ruta no tiene latitud y/o longitud válida', ruta);
-            return;
-          }
-        
           const distancia = Math.sqrt(
             Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
           );
-        
+
           if (distancia < distanciaMinima) {
             distanciaMinima = distancia;
             origenCercano = ruta.origen;
           }
         });
-      
-        if (!origenCercano) {
-          console.error('No se encontró un origen cercano');
-          return;
-        }
-      
-        console.log(`Origen cercano: ${origenCercano}`); // Debug: imprimir origen cercano
-      
+
         setOrigen(origenCercano);
       });
     } else {
       alert('Geolocalización no soportada por tu navegador');
     }
+  };
+
+  const agregarAFavoritos = () => {
+    if (origen && destino) {
+      const nuevaRutaFavorita = { origen, destino };
+      if (!favoritos.some(fav => fav.origen === origen && fav.destino === destino)) {
+        setFavoritos([...favoritos, nuevaRutaFavorita]);
+      }
+    }
+  };
+
+  const eliminarFavorito = (favorito) => {
+    const nuevosFavoritos = favoritos.filter(fav => !(fav.origen === favorito.origen && fav.destino === favorito.destino));
+    setFavoritos(nuevosFavoritos);
+  };
+
+  const seleccionarFavorito = (favorito) => {
+    setOrigen(favorito.origen);
+    setDestino(favorito.destino);
+    buscarProximoBus(favorito.origen, favorito.destino);
+    setMostrarFavoritos(false); // Cerrar la sección de favoritos al seleccionar uno
   };
 
   return (
@@ -254,25 +255,36 @@ function App() {
             </div>
             <div className="form-field">
               <label>Destí:</label>
-                <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
-                  <option value="">Selecciona</option>
-                  {destinosDisponibles.sort().map((destino, index) => (
-                    <option key={index} value={destino}>{destino}</option>
-                  ))}
-                </select>
+              <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>
+                <option value="">Selecciona</option>
+                {destinosDisponibles.sort().map((destino, index) => (
+                  <option key={index} value={destino}>{destino}</option>
+                ))}
+              </select>
             </div>
           </div>
           <button className="swap-button" onClick={intercambiarOrigenDestino}>⇄</button>
         </div>
         <button onClick={() => buscarProximoBus(origen, destino)}>Buscar següents busos</button>
         {mensajeNoMasBuses && <p>{mensajeNoMasBuses}</p>}
-        <ul>
-          {resultados.map((horario, index) => (
-            <li key={index}>
-              {horario.estacion} - {horario.hora_salida} ({horario.dia_semana})
-            </li>
-          ))}
-        </ul>
+        <div className="favoritos-section">
+          <button onClick={() => setMostrarFavoritos(!mostrarFavoritos)}>
+            {mostrarFavoritos ? 'Amagar Favorits' : 'Mostrar Favorits'}
+          </button>
+          {mostrarFavoritos && (
+            <ul>
+              {favoritos.map((favorito, index) => (
+                <li key={index}>
+                  <button onClick={() => seleccionarFavorito(favorito)}>
+                    {favorito.origen} - {favorito.destino}
+                  </button>
+                  <button onClick={() => eliminarFavorito(favorito)}>Eliminar</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button onClick={agregarAFavoritos}>Afegir a favorits</button>
+        </div>
         <div>
           <label>Dia de la setmana:</label>
           <select value={diaSemana} onChange={e => setDiaSemana(e.target.value)}>
@@ -294,6 +306,7 @@ function App() {
             ))}
           </ul>
         )}
+        
       </div>
       <button className="noticia-button" onClick={() => setMostrarPopup(true)}>Noticia 3d8</button>
       <Popup mostrar={mostrarPopup} onClose={() => setMostrarPopup(false)} />
