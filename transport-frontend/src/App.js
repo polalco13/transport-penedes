@@ -72,12 +72,18 @@ function App() {
   }, [favoritos]);
 
   useEffect(() => {
-    setDestino('');
-    setResultados([]);
-    setHorariosCompletos([]);
-    setMostrarHorarios(false);
-    setMensajeNoMasBuses('');
-  }, [origen]);
+    if (origen && destino) {
+      buscarProximoBus(origen, destino);
+      if (mostrarHorarios) {
+        buscarHorariosCompletos(origen, destino);
+      }
+    } else {
+      setResultados([]);
+      setHorariosCompletos([]);
+      setMostrarHorarios(false);
+      setMensajeNoMasBuses('');
+    }
+  }, [origen, destino, diaSemana, mostrarHorarios]);
 
   const buscarProximoBus = (origenBus, destinoBus) => {
     const ara = new Date();
@@ -165,29 +171,15 @@ function App() {
   const intercambiarOrigenDestino = () => {
     const nuevoOrigen = destino;
     const nuevoDestino = origen;
+
+    console.log(`Intercambiando: nuevoOrigen = ${nuevoOrigen}, nuevoDestino = ${nuevoDestino}`);
+
     setOrigen(nuevoOrigen);
     setDestino(nuevoDestino);
-
-    if (nuevoOrigen) {
-      const destinos = rutas
-        .filter(ruta => ruta.origen === nuevoOrigen)
-        .map(ruta => ruta.destino);
-      setDestinosDisponibles([...new Set(destinos)]);
-    } else {
-      setDestinosDisponibles([]);
-    }
-
-    buscarProximoBus(nuevoOrigen, nuevoDestino);
-    if (mostrarHorarios) {
-      buscarHorariosCompletos(nuevoOrigen, nuevoDestino);
-    }
   };
 
   const toggleMostrarHorarios = () => {
     setMostrarHorarios(!mostrarHorarios);
-    if (!mostrarHorarios) {
-      buscarHorariosCompletos(origen, destino);
-    }
   };
 
   const detectarUbicacion = () => {
@@ -233,7 +225,6 @@ function App() {
   const seleccionarFavorito = (favorito) => {
     setOrigen(favorito.origen);
     setDestino(favorito.destino);
-    buscarProximoBus(favorito.origen, favorito.destino);
     setMostrarFavoritos(false); // Cerrar la sección de favoritos al seleccionar uno
   };
 
