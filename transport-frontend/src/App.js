@@ -270,7 +270,7 @@ function App() {
         {/* Renderización de resultados */}
         {resultados.length > 0 && (
           <div>
-            <h2>Próximos buses</h2>
+            <h2>Pròxims busos</h2>
             <ul>
               {resultados.map((resultado, index) => (
                 <li key={index}>
