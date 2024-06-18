@@ -34,7 +34,7 @@ function App() {
   const [mostrarPopup, setMostrarPopup] = useState(false);
   const [rutaPredeterminada, setRutaPredeterminada] = useState('');
   const [favoritos, setFavoritos] = useState([]);
-  const [mostrarFavoritos, setMostrarFavoritos] = useState(false); // Estado para mostrar/ocultar la sección de favoritos
+  const [mostrarFavoritos, setMostrarFavoritos] = useState(false);
 
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
@@ -73,8 +73,10 @@ function App() {
 
   useEffect(() => {
     if (origen && destino) {
+      console.log(`Buscando próximo bus de ${origen} a ${destino}`);
       buscarProximoBus(origen, destino);
       if (mostrarHorarios) {
+        console.log(`Buscando horarios completos de ${origen} a ${destino} para el día ${diaSemana}`);
         buscarHorariosCompletos(origen, destino);
       }
     } else {
@@ -90,9 +92,13 @@ function App() {
     const horaActual = ara.toTimeString().split(' ')[0].slice(0, 5); // "HH:MM"
     const diaActual = diasSemana[ara.getDay()];
 
+    console.log(`Hora actual: ${horaActual}, Día actual: ${diaActual}`);
+
     const rutaIds = rutas
       .filter(ruta => ruta.origen === origenBus && ruta.destino === destinoBus)
       .map(ruta => ruta.id);
+
+    console.log(`IDs de las rutas filtradas: ${rutaIds}`);
 
     let resultados = [];
 
@@ -136,6 +142,8 @@ function App() {
     });
 
     const proximosBuses = resultados.slice(0, 3);
+
+    console.log('Próximos buses encontrados:', proximosBuses);
 
     setResultados(proximosBuses);
     if (proximosBuses.length === 0) {
@@ -225,7 +233,7 @@ function App() {
   const seleccionarFavorito = (favorito) => {
     setOrigen(favorito.origen);
     setDestino(favorito.destino);
-    setMostrarFavoritos(false); // Cerrar la sección de favoritos al seleccionar uno
+    setMostrarFavoritos(false);
   };
 
   return (
@@ -258,6 +266,21 @@ function App() {
         </div>
         <button onClick={() => buscarProximoBus(origen, destino)}>Buscar següents busos</button>
         {mensajeNoMasBuses && <p>{mensajeNoMasBuses}</p>}
+
+        {/* Renderización de resultados */}
+        {resultados.length > 0 && (
+          <div>
+            <h2>Próximos buses</h2>
+            <ul>
+              {resultados.map((resultado, index) => (
+                <li key={index}>
+                  {resultado.estacion} - {resultado.hora_salida} ({resultado.dia_semana})
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="favoritos-section">
           <button onClick={() => setMostrarFavoritos(!mostrarFavoritos)}>
             {mostrarFavoritos ? 'Amagar Favorits' : 'Mostrar Favorits'}
