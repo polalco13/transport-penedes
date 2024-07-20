@@ -236,11 +236,34 @@ function App() {
     setMostrarFavoritos(false);
   };
 
+  useEffect(() => {
+    const toggleDarkMode = () => {
+      document.body.classList.toggle('dark-mode');
+      const elementsToToggle = document.querySelectorAll(
+        'button, select, .form-group, .popup, li, label, .close-button'
+      );
+      elementsToToggle.forEach(el => el.classList.toggle('dark-mode'));
+    };
+
+    const themeToggleButton = document.getElementById('theme-toggle');
+    themeToggleButton.addEventListener('click', toggleDarkMode);
+
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.body.classList.add('dark-mode');
+    }
+
+    // Cleanup function to remove the event listener
+    return () => themeToggleButton.removeEventListener('click', toggleDarkMode);
+  }, []);
+
+
   return (
     <div className="App">
       <div className="App-header">
         <h1>Transport Públic del Penedès</h1>
-        <div className="form-group">
+        {/*dark mode toggle button*/}
+        <button id="theme-toggle">Dark/Light Mode</button>
+         <div className="form-group">
           <div className="form-fields">
             <div className="form-field">
               <label>Origen:</label>
@@ -280,7 +303,7 @@ function App() {
             </ul>
           </div>
         )}
-
+        {/*
         <div className="favoritos-section">
           <button onClick={() => setMostrarFavoritos(!mostrarFavoritos)}>
             {mostrarFavoritos ? 'Amagar Favorits' : 'Mostrar Favorits'}
@@ -299,6 +322,8 @@ function App() {
           )}
           <button onClick={agregarAFavoritos}>Afegir a favorits</button>
         </div>
+        */}
+        
         <div>
           <label>Dia de la setmana:</label>
           <select value={diaSemana} onChange={e => setDiaSemana(e.target.value)}>
@@ -322,8 +347,11 @@ function App() {
         )}
         
       </div>
-      <button className="noticia-button" onClick={() => setMostrarPopup(true)}>Noticia 3d8</button>
+      {/* Botón para mostrar la noticia 3d8 
+        <button className="noticia-button" onClick={() => setMostrarPopup(true)}>Noticia 3d8</button>
       <Popup mostrar={mostrarPopup} onClose={() => setMostrarPopup(false)} />
+      
+      */}
       <Analytics />
     </div>
   );
