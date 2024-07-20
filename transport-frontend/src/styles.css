@@ -66,16 +66,18 @@ button, select {
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s;
   box-shadow: 0 25.6px 57.6px 0 rgb(0 0 0 / 22%), 0 4.8px 14.4px 0 rgb(0 0 0 / 18%);
   outline: none;
-  transition: background-color 0.3, color 0.3s;
-  transform: 0.2s ease;
 }
 
-.dark-mode {
-  background-color: #333;
+button.dark-mode, select.dark-mode {
+  background-color: #424242;
   color: #FFFBEB;
+}
+
+button:hover {
+  background-color: #B45309; /* color800 */
 }
 
 button, select, .form-group, .popup, li, label, .close-button {
@@ -86,7 +88,6 @@ button.dark-mode, select.dark-mode, .form-group.dark-mode, .popup.dark-mode, li.
   background-color: #424242;
   color: #FFFBEB;
 }
-
 
 /* Custom Button Styles */
 .button-9 {
@@ -150,10 +151,6 @@ button::after {
 button:hover::after {
   transition: transform 0.45s ease-in-out;
   transform: translate3d(200%, 0, 0) rotate(35deg);
-}
-
-button:hover {
-  background-color: #B45309; /* color800 */
 }
 
 /* Form Styles */
