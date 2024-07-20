@@ -236,7 +236,8 @@ function App() {
     setMostrarFavoritos(false);
   };
 
-  useEffect(() => {
+  {/* Dark mode toggle button 
+      useEffect(() => {
     const toggleDarkMode = () => {
       document.body.classList.toggle('dark-mode');
       const elementsToToggle = document.querySelectorAll(
@@ -255,14 +256,16 @@ function App() {
     // Cleanup function to remove the event listener
     return () => themeToggleButton.removeEventListener('click', toggleDarkMode);
   }, []);
+    */}
+
 
 
   return (
     <div className="App">
       <div className="App-header">
         <h1>Transport Públic del Penedès</h1>
-        {/*dark mode toggle button*/}
-        <button id="theme-toggle">Dark/Light Mode</button>
+        {/*dark mode toggle button
+        <button id="theme-toggle">Dark/Light Mode</button>*/}
          <div className="form-group">
           <div className="form-fields">
             <div className="form-field">
