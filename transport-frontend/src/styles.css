@@ -57,7 +57,7 @@ h1 {
 }
 
 button, select {
-  font-family: 'Arial', sans-serif;
+  -webkit-appearance: none;
   margin-top: 10px;
   margin-right: 10px;
   margin-left: 5px;
@@ -73,14 +73,20 @@ button, select {
   transform: 0.2s ease;
 }
 
-button, select.dark-mode {
-  color: #333;
-  background-color: #92400E; /* color900 */
+.dark-mode {
+  background-color: #333;
+  color: #FFFBEB;
 }
 
-button.dark-mode:hover {
-  background-color: #78350F; /* color1000 */
+button, select, .form-group, .popup, li, label, .close-button {
+  transition: background-color 0.3s, color 0.3s;
 }
+
+button.dark-mode, select.dark-mode, .form-group.dark-mode, .popup.dark-mode, li.dark-mode, label.dark-mode, .close-button.dark-mode {
+  background-color: #424242;
+  color: #FFFBEB;
+}
+
 
 /* Custom Button Styles */
 .button-9 {
@@ -158,10 +164,23 @@ button:hover {
   width: 100%;
   max-width: 600px;
   padding: 20px;
-  box-shadow: 0 25.6px 57.6px 0 rgb(0 0 0 / 22%), 0 4.8px 14.4px 0 rgb(0 0 0 / 18%);
   background-color: #FFFBEB; /* color100 */
   border-radius: 10px;
   margin: 20px 0;
+}
+
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 10px;
 }
 
 .form-group.dark-mode {
@@ -169,16 +188,11 @@ button:hover {
   color: #FFFBEB;
 }
 
-.form-fields {
+.favoritos-section {
   display: flex;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.form-field {
-  display: flex;
+  justify-content: center;
+  align-items: center;
   flex-direction: column;
-  margin-right: 20px;
 }
 
 .form-field:last-child {
@@ -268,6 +282,11 @@ button:focus, select:focus {
 }
 
 @media (max-width: 600px) {
+  .form-group {
+    padding: 10px;
+    width: 100%;
+  }
+
   .form-fields {
     flex-direction: column;
     align-items: stretch;
@@ -280,9 +299,5 @@ button:focus, select:focus {
 
   .form-field:last-child {
     margin-bottom: 0;
-  }
-
-  .form-group {
-    padding: 10px;
   }
 }
