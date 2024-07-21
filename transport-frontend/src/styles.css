@@ -138,13 +138,42 @@ li:hover {
   align-items: center;
   justify-content: center;
   margin-bottom: 20px;
-  gap: 10px;
+  gap: 20px; /* Increase gap for better spacing */
+  flex-direction: column; /* Set flex direction to row */
+  width: 100%;
+  background-color: #264653;
+  padding: 20px;
+  border-radius: 20px;
+  margin-top: 20px;
+}
+
+.form-fields {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px; /* Increase gap for better spacing */
+  flex-direction: column;
+  margin-bottom: 10px;
+  width: 100%;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 50%;
+}
+
+button {
+  width: 50%;
+  margin-top: 10px;
 }
 
 .form-field label {
@@ -209,7 +238,7 @@ li:hover {
   padding: 10px 15px;
   margin-left: 10px;
   background-color: var(--color-accent);
-  color: var(--color-text);
+  color: var (--color-text);
   border: none;
   border-radius: 10px;
   cursor: pointer;
