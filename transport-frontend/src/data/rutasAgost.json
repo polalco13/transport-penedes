@@ -1,0 +1,10 @@
+[
+    {"id": 1, "origen": "Barcelona - Sants", "destino": "Vilafranca de Penedès", "latitud_origen": 41.3797, "longitud_origen": 2.1408, "latitud_destino": 41.344, "longitud_destino": 1.6978},
+    {"id": 2, "origen": "Barcelona - M Cristina", "destino": "Vilafranca de Penedès", "latitud_origen": 41.3818, "longitud_origen": 2.1228, "latitud_destino": 41.344, "longitud_destino": 1.6978},
+    {"id": 3, "origen": "Vilafranca de Penedès", "destino": "Barcelona - M Cristina", "latitud_origen": 41.344, "longitud_origen": 1.6978, "latitud_destino": 41.3818, "longitud_destino": 2.1228},
+    {"id": 4, "origen": "Vilafranca de Penedès", "destino": "Barcelona - Sants", "latitud_origen": 41.344, "longitud_origen": 1.6978, "latitud_destino": 41.3797, "longitud_destino": 2.1408},
+    {"id": 5, "origen": "Sant Sadurní d'Anoia", "destino": "Barcelona - M Cristina", "latitud_origen": 41.4255, "longitud_origen": 1.7836, "latitud_destino": 41.3818, "longitud_destino": 2.1228},
+    {"id": 6, "origen": "Barcelona - M Cristina", "destino": "Sant Sadurní d'Anoia", "latitud_origen": 41.3818, "longitud_origen": 2.1228, "latitud_destino": 41.4255, "longitud_destino": 1.7836},
+    {"id": 7, "origen": "Vilanova i la Geltrú", "destino": "Vilafranca de Penedès", "latitud_origen": 41.223, "longitud_origen": 1.725, "latitud_destino": 41.344, "longitud_destino": 1.6978},
+    {"id": 8, "origen": "Vilafranca de Penedès", "destino": "Vilanova i la Geltrú", "latitud_origen": 41.344, "longitud_origen": 1.6978, "latitud_destino": 41.223, "longitud_destino": 1.725}
+]

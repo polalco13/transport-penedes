@@ -1,7 +1,9 @@
 import { Analytics } from "@vercel/analytics/react";
 import React, { useState, useEffect } from 'react';
 import rutasData from './data/rutas.json';
+import rutasAgostData from './data/rutasAgost.json';
 import horariosData from './data/horarios.json';
+import horariosAgostData from './data/horariosAgost.json';
 import Noticia3d8 from './noticies/Noticia3d8.jpg';
 
 import './styles.css';
@@ -39,6 +41,7 @@ function App() {
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
   useEffect(() => {
+    //canviar
     setRutas(rutasData);
 
     const rutaGuardada = localStorage.getItem('rutaPredeterminada');
@@ -102,6 +105,7 @@ function App() {
 
     let resultados = [];
 
+    //canviar mes!
     horariosData.forEach(horario => {
       if (rutaIds.includes(horario.ruta_id) && horario.horarios[diaActual]) {
         const proximosHorarios = horario.horarios[diaActual].filter(hora_salida => {
@@ -192,29 +196,26 @@ function App() {
 
   const detectarUbicacion = () => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(position => {
-        const { latitude, longitude } = position.coords;
+        navigator.geolocation.getCurrentPosition(position => {
+            const { latitude, longitude } = position.coords;
+            let distanciaMinima = Infinity;
+            let origenCercano = '';
 
-        let distanciaMinima = Infinity;
-        let origenCercano = '';
+            rutasData.forEach(ruta => {
+                const distancia = Math.sqrt(
+                    Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
+                );
+                if (distancia < distanciaMinima) {
+                    distanciaMinima = distancia;
+                    origenCercano = ruta.origen;}
+            });
 
-        rutasData.forEach(ruta => {
-          const distancia = Math.sqrt(
-            Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
-          );
-
-          if (distancia < distanciaMinima) {
-            distanciaMinima = distancia;
-            origenCercano = ruta.origen;
-          }
+            setOrigen(origenCercano);
         });
-
-        setOrigen(origenCercano);
-      });
     } else {
-      alert('Geolocalización no soportada por tu navegador');
+        alert('Geolocalización no soportada por tu navegador');
     }
-  };
+};
 
   const agregarAFavoritos = () => {
     if (origen && destino) {
@@ -234,6 +235,12 @@ function App() {
     setOrigen(favorito.origen);
     setDestino(favorito.destino);
     setMostrarFavoritos(false);
+  };
+
+  const [showNotification, setShowNotification] = useState(true);
+
+  const closeNotification = () => {
+    setShowNotification(false);
   };
 
   {/* Dark mode toggle button 
@@ -260,22 +267,28 @@ function App() {
 
 
 
-  return (
-    <div className="App">
-      <div className="App-header">
-        <h1>Transport Públic del Penedès</h1>
-        {/*dark mode toggle button
-        <button id="theme-toggle">Dark/Light Mode</button>*/}
-         <div className="form-group">
-          <div className="form-fields">
-            <div className="form-field">
-              <label>Origen:</label>
-              <select value={origen} onChange={e => setOrigen(e.target.value)}>
-                <option value="">Selecciona</option>
-                {[...new Set(rutas.map(ruta => ruta.origen))].sort().map((origen, index) => (
-                  <option key={index} value={origen}>{origen}</option>
-                ))}
-              </select>
+    return (
+      <div className="App">
+        <div className="App-header">
+          <h1>Transport Públic del Penedès</h1>
+          {/*dark mode toggle button
+          <button id="theme-toggle">Dark/Light Mode</button>*/}
+          {showNotification && (
+            <div className="notification">
+              <p>Els horaris d'Agost estan ben especificats.</p>
+              <button className="close-button" onClick={closeNotification}>❌</button>
+            </div>
+          )}
+          <div className="form-group">
+            <div className="form-fields">
+              <div className="form-field">
+                <label>Origen:</label>
+                <select value={origen} onChange={e => setOrigen(e.target.value)}>
+                  <option value="">Selecciona</option>
+                  {[...new Set(rutas.map(ruta => ruta.origen))].sort().map((origen, index) => (
+                    <option key={index} value={origen}>{origen}</option>
+                  ))}
+                </select>
               <button onClick={detectarUbicacion}>Detectar ubicació propera</button>
             </div>
             <div className="form-field">
