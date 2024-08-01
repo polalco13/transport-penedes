@@ -5,6 +5,8 @@ import rutasAgostData from './data/rutasAgost.json';
 import horariosData from './data/horarios.json';
 import horariosAgostData from './data/horariosAgost.json';
 import Noticia3d8 from './noticies/Noticia3d8.jpg';
+import Maintenance from './manteniment'; // Importa el componente de mantenimiento
+
 
 import './styles.css';
 
@@ -24,6 +26,10 @@ function Popup({ mostrar, onClose }) {
 }
 
 function App() {
+
+  //provisional
+  const [isMaintenance, setIsMaintenance] = useState(true); // Estado para el modo de mantenimiento
+
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
   const [resultados, setResultados] = useState([]);
@@ -266,8 +272,14 @@ function App() {
     */}
 
 
+    if (isMaintenance) {
+      return <Maintenance />; // Renderiza el componente de mantenimiento si está en modo de mantenimiento
+    }
 
     return (
+      /**
+       
+       */
       <div className="App">
         <div className="App-header">
           <h1>Transport Públic del Penedès</h1>
