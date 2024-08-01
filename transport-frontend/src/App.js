@@ -42,7 +42,7 @@ function App() {
 
   useEffect(() => {
     //canviar
-    setRutas(rutasData);
+    setRutas(rutasAgostData);
 
     const rutaGuardada = localStorage.getItem('rutaPredeterminada');
     if (rutaGuardada) {
@@ -106,7 +106,7 @@ function App() {
     let resultados = [];
 
     //canviar mes!
-    horariosData.forEach(horario => {
+    horariosAgostData.forEach(horario => {
       if (rutaIds.includes(horario.ruta_id) && horario.horarios[diaActual]) {
         const proximosHorarios = horario.horarios[diaActual].filter(hora_salida => {
           const [horaSalidaHours, horaSalidaMinutes] = hora_salida.split(':').map(Number);
