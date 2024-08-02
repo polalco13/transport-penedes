@@ -170,7 +170,8 @@ function App() {
 
     let resultados = [];
 
-    horariosData.forEach(horario => {
+    //canviar mes!
+    horariosAgostData.forEach(horario => {
       if (rutaIds.includes(horario.ruta_id) && horario.horarios[diaSemana]) {
         horario.horarios[diaSemana].forEach(hora_salida => {
           resultados.push({
@@ -375,11 +376,6 @@ function App() {
         )}
         
       </div>
-      {/* Botón para mostrar la noticia 3d8 
-        <button className="noticia-button" onClick={() => setMostrarPopup(true)}>Noticia 3d8</button>
-      <Popup mostrar={mostrarPopup} onClose={() => setMostrarPopup(false)} />
-      
-      */}
       <Analytics />
     </div>
   );

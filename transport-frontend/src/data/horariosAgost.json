@@ -157,7 +157,7 @@
           }
         },
         {
-          "ruta_id": 9,
+          "ruta_id": 6,
           "estacion": "BCN - C. d'Urgell, 229 - C. de París",
           "horarios": {
             "Dilluns": ["7:20", "8:00", "9:15", "9:30", "10:30", "12:15",
