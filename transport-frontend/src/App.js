@@ -272,7 +272,7 @@ function App() {
     */}
 
 
-    if (isMaintenance) {
+    if (!isMaintenance) {
       return <Maintenance />; // Renderiza el componente de mantenimiento si está en modo de mantenimiento
     }
 
