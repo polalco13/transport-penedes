@@ -243,7 +243,7 @@ function App() {
           <h1>Transport Públic del Penedès</h1>
           {showNotification && (
             <div className="notification">
-              <p>h1oraris d'Agost actualitzats.</p>
+              <p>horaris d'Agost actualitzats.</p>
               <button className="close-button" onClick={closeNotification}>❌</button>
             </div>
           )}
