@@ -107,6 +107,21 @@ button:disabled {
   border: 1px solid #ccc; /* Match border color with background */
 }
 
+
+.responsive-image {
+  max-width: 100%; /* Ensures the image doesn't exceed the width of its container */
+  height: auto; /* Maintains the aspect ratio */
+  display: block; /* Removes the bottom margin/gap */
+  margin: 0 auto; /* Centers the image horizontally */
+}
+
+.image-container {
+  width: 100%; /* Ensure the container takes full width */
+  max-width: 600px; /* Set a maximum width if needed */
+  margin: 0 auto; /* Center the container */
+  text-align: center; /* Center the image inside the container */
+}
+
 ul {
   list-style-type: none;
   padding: 0;
@@ -287,8 +302,8 @@ button {
 }
 
 .notification {
-  background-color: #f8d7da;
-  color: #721c24;
+  background-color: #fffb08;
+  color: #000000;
   padding: 10px;
   border: 1px solid #f5c6cb;
   border-radius: 20px;

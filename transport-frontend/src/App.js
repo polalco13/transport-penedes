@@ -243,7 +243,7 @@ function App() {
           <h1>Transport Públic del Penedès</h1>
           {showNotification && (
             <div className="notification">
-              <p>Els horaris d'Agost estan ben especificats.</p>
+              <p>h1oraris d'Agost actualitzats.</p>
               <button className="close-button" onClick={closeNotification}>❌</button>
             </div>
           )}
@@ -273,9 +273,14 @@ function App() {
             </div>
           </div>
           <button className="swap-button" onClick={intercambiarOrigenDestino}>⇄</button>
+          
+          {/*<img src={require('./img/VilaMCristina.png')} alt="Your Image" className="responsive-image"/>*/}
+
         </div>
         <button onClick={() => buscarProximoBus(origen, destino)}>Buscar següents busos</button>
         {mensajeNoMasBuses && <p>{mensajeNoMasBuses}</p>}
+
+        
 
         {/* Renderización de resultados */}
         {resultados.length > 0 && (
