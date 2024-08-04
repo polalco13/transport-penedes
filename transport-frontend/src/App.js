@@ -28,6 +28,8 @@ function App() {
   const [rutaPredeterminada, setRutaPredeterminada] = useState('');
   const [favoritos, setFavoritos] = useState([]);
   const [mostrarFavoritos, setMostrarFavoritos] = useState(false);
+  const [loading, setLoading] = useState(false);
+
 
   const diasSemana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
 
@@ -168,6 +170,7 @@ function App() {
   };
 
   const detectarUbicacion = () => {
+    setLoading(true);
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(position => {
             const { latitude, longitude } = position.coords;
@@ -182,13 +185,15 @@ function App() {
                     distanciaMinima = distancia;
                     origenCercano = ruta.origen;}
             });
-
-            setOrigen(origenCercano);
-        });
-    } else {
-        alert('Geolocalización no soportada por tu navegador');
-    }
-};
+            setOrigen(origenCercano); 
+            setLoading(false);
+          }, () => {
+            setLoading(false);
+          });
+        } else {
+            setLoading(false);
+        }  
+      };
 
   const agregarAFavoritos = () => {
     if (origen && destino) {
@@ -252,8 +257,11 @@ function App() {
                     <option key={index} value={origen}>{origen}</option>
                   ))}
                 </select>
-              <button onClick={detectarUbicacion}>Detectar ubicació propera</button>
-            </div>
+                <button onClick={detectarUbicacion} disabled={loading}>
+                    Detectar ubicació propera
+                  </button>
+                  {loading && <div className="spinner"></div>}
+                </div>
             <div className="form-field">
               <label>Destí:</label>
               <select value={destino} onChange={e => setDestino(e.target.value)} disabled={!origen}>

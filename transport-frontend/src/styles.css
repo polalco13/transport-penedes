@@ -99,6 +99,14 @@ button:hover {
   transform: translateY(-3px);
 }
 
+/* styles.css */
+button:disabled {
+  background-color: #ccc; /* Light grey background */
+  color: #666; /* Dark grey text */
+  cursor: not-allowed; /* Change cursor to indicate it's not clickable */
+  border: 1px solid #ccc; /* Match border color with background */
+}
+
 ul {
   list-style-type: none;
   padding: 0;
@@ -327,4 +335,19 @@ button {
 
 .maintenance p {
   font-size: 1.25rem;
+}
+
+.spinner {
+  border: 16px solid #f3f3f3; /* Light grey */
+  border-top: 16px solid #3498db; /* Blue */
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 2s linear infinite;
+  margin-top: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
