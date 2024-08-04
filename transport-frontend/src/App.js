@@ -4,31 +4,16 @@ import rutasData from './data/rutas.json';
 import rutasAgostData from './data/rutasAgost.json';
 import horariosData from './data/horarios.json';
 import horariosAgostData from './data/horariosAgost.json';
-import Noticia3d8 from './noticies/Noticia3d8.jpg';
-import Maintenance from './manteniment'; // Importa el componente de mantenimiento
-
+import Maintenance from './manteniment';
 
 import './styles.css';
-
-function Popup({ mostrar, onClose }) {
-  if (!mostrar) {
-    return null;
-  }
-
-  return (
-    <div className="popup-overlay">
-      <div className="popup">
-        <button className="close-button" onClick={onClose}>X</button>
-        <img src={Noticia3d8} alt="Noticia 3d8" />
-      </div>
-    </div>
-  );
-}
 
 function App() {
 
   //provisional
   const [isMaintenance, setIsMaintenance] = useState(true); // Estado para el modo de mantenimiento
+
+  const [comentarios, setComentarios] = useState({});
 
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
@@ -49,16 +34,6 @@ function App() {
   useEffect(() => {
     //canviar
     setRutas(rutasAgostData);
-
-    const rutaGuardada = localStorage.getItem('rutaPredeterminada');
-    if (rutaGuardada) {
-      setRutaPredeterminada(rutaGuardada);
-    }
-
-    const favoritosGuardados = JSON.parse(localStorage.getItem('favoritos'));
-    if (favoritosGuardados) {
-      setFavoritos(favoritosGuardados);
-    }
   }, []);
 
   useEffect(() => {
@@ -82,10 +57,8 @@ function App() {
 
   useEffect(() => {
     if (origen && destino) {
-      console.log(`Buscando próximo bus de ${origen} a ${destino}`);
       buscarProximoBus(origen, destino);
       if (mostrarHorarios) {
-        console.log(`Buscando horarios completos de ${origen} a ${destino} para el día ${diaSemana}`);
         buscarHorariosCompletos(origen, destino);
       }
     } else {
@@ -93,7 +66,7 @@ function App() {
       setHorariosCompletos([]);
       setMostrarHorarios(false);
       setMensajeNoMasBuses('');
-    }
+      } 
   }, [origen, destino, diaSemana, mostrarHorarios]);
 
   const buscarProximoBus = (origenBus, destinoBus) => {
@@ -101,13 +74,9 @@ function App() {
     const horaActual = ara.toTimeString().split(' ')[0].slice(0, 5); // "HH:MM"
     const diaActual = diasSemana[ara.getDay()];
 
-    console.log(`Hora actual: ${horaActual}, Día actual: ${diaActual}`);
-
     const rutaIds = rutas
       .filter(ruta => ruta.origen === origenBus && ruta.destino === destinoBus)
       .map(ruta => ruta.id);
-
-    console.log(`IDs de las rutas filtradas: ${rutaIds}`);
 
     let resultados = [];
 
@@ -190,9 +159,6 @@ function App() {
   const intercambiarOrigenDestino = () => {
     const nuevoOrigen = destino;
     const nuevoDestino = origen;
-
-    console.log(`Intercambiando: nuevoOrigen = ${nuevoOrigen}, nuevoDestino = ${nuevoDestino}`);
-
     setOrigen(nuevoOrigen);
     setDestino(nuevoDestino);
   };
@@ -208,7 +174,7 @@ function App() {
             let distanciaMinima = Infinity;
             let origenCercano = '';
 
-            rutasData.forEach(ruta => {
+            rutasAgostData.forEach(ruta => {
                 const distancia = Math.sqrt(
                     Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
                 );
@@ -250,27 +216,16 @@ function App() {
     setShowNotification(false);
   };
 
-  {/* Dark mode toggle button 
-      useEffect(() => {
-    const toggleDarkMode = () => {
-      document.body.classList.toggle('dark-mode');
-      const elementsToToggle = document.querySelectorAll(
-        'button, select, .form-group, .popup, li, label, .close-button'
-      );
-      elementsToToggle.forEach(el => el.classList.toggle('dark-mode'));
-    };
-
-    const themeToggleButton = document.getElementById('theme-toggle');
-    themeToggleButton.addEventListener('click', toggleDarkMode);
-
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.body.classList.add('dark-mode');
-    }
-
-    // Cleanup function to remove the event listener
-    return () => themeToggleButton.removeEventListener('click', toggleDarkMode);
-  }, []);
-    */}
+  const agregarComentario = (rutaId, comentario) => {
+    setComentarios(prevComentarios => {
+      const nuevosComentarios = { ...prevComentarios };
+      if (!nuevosComentarios[rutaId]) {
+        nuevosComentarios[rutaId] = [];
+      }
+      nuevosComentarios[rutaId].push(comentario);
+      return nuevosComentarios;
+    });
+  };
 
 
     if (!isMaintenance) {
@@ -278,14 +233,9 @@ function App() {
     }
 
     return (
-      /**
-       
-       */
       <div className="App">
         <div className="App-header">
           <h1>Transport Públic del Penedès</h1>
-          {/*dark mode toggle button
-          <button id="theme-toggle">Dark/Light Mode</button>*/}
           {showNotification && (
             <div className="notification">
               <p>Els horaris d'Agost estan ben especificats.</p>
@@ -332,26 +282,6 @@ function App() {
             </ul>
           </div>
         )}
-        {/*
-        <div className="favoritos-section">
-          <button onClick={() => setMostrarFavoritos(!mostrarFavoritos)}>
-            {mostrarFavoritos ? 'Amagar Favorits' : 'Mostrar Favorits'}
-          </button>
-          {mostrarFavoritos && (
-            <ul>
-              {favoritos.map((favorito, index) => (
-                <li key={index}>
-                  <button onClick={() => seleccionarFavorito(favorito)}>
-                    {favorito.origen} - {favorito.destino}
-                  </button>
-                  <button onClick={() => eliminarFavorito(favorito)}>Eliminar</button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button onClick={agregarAFavoritos}>Afegir a favorits</button>
-        </div>
-        */}
         
         <div>
           <label>Dia de la setmana:</label>
@@ -373,8 +303,7 @@ function App() {
               </li>
             ))}
           </ul>
-        )}
-        
+        )}        
       </div>
       <Analytics />
     </div>

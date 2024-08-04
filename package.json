@@ -16,6 +16,7 @@
     "sweetalert2": "^11.12.3"
   },
   "devDependencies": {
+    "@fullhuman/postcss-purgecss": "^6.0.0",
     "daisyui": "^4.12.10"
   }
 }

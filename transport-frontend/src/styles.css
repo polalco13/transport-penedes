@@ -23,7 +23,7 @@ body {
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
-  width: 100%;
+  width: 100%; /* Evita scroll horizontal en pantallas pequeñas */
   box-sizing: border-box;
   overflow-x: hidden; /* Evita scroll horizontal en pantallas pequeñas */
 }
@@ -136,8 +136,8 @@ li:hover {
 .form-group {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
+  justify-content:center; /* Increase gap for better spacing */
+  margin-bottom: 20px; /* Set flex direction to row */
   gap: 20px; /* Increase gap for better spacing */
   flex-direction: column; /* Set flex direction to row */
   width: 100%;
@@ -149,7 +149,7 @@ li:hover {
 
 .form-fields {
   display: flex;
-  align-items: center;
+  align-items: center;/* Increase gap for better spacing */
   justify-content: center;
   gap: 20px; /* Increase gap for better spacing */
   flex-direction: column;
@@ -198,55 +198,6 @@ button {
 }
 
 .swap-button:hover {
-  background-color: var(--color-secondary);
-  transform: translateY(-2px);
-}
-
-/* Estilos específicos para la sección de favoritos */
-.favoritos-section {
-  margin-top: 30px;
-  padding: 5px;
-  background-color: var(--color-primary);
-  border-radius: 20px;
-  box-shadow: 0 6px 20px var(--color-shadow-dark);
-  transition: transform 0.3s ease, background-color 0.3s ease;
-}
-
-.favoritos-section:hover {
-  transform: scale(1.03);
-  background-color: var(--color-secondary);
-}
-
-.favoritos-section h2 {
-  font-size: 2em;
-  color: var(--color-text);
-  margin-bottom: 10px;
-}
-
-.favoritos-section ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 10px 0;
-}
-
-.favoritos-section li {
-  margin: 10px 0;
-}
-
-.favoritos-section button {
-  font-size: 1em;
-  padding: 10px 15px;
-  margin-left: 10px;
-  background-color: var(--color-accent);
-  color: var (--color-text);
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px var(--color-shadow);
-  transition: background-color 0.3s ease, transform 0.3s ease;
-}
-
-.favoritos-section button:hover {
   background-color: var(--color-secondary);
   transform: translateY(-2px);
 }
@@ -327,24 +278,6 @@ button {
   cursor: pointer;
 }
 
-.noticia-button {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  padding: 10px 20px;
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  z-index: 1000;
-}
-
-.noticia-button:hover {
-  background-color: var(--color-secondary);
-  transform: translateY(-2px);
-}
-
 .notification {
   background-color: #f8d7da;
   color: #721c24;
@@ -357,17 +290,16 @@ button {
 
 .close-button {
   background: none;
-  border: none;
+  border: none; /* Hacer el botón más pequeño */
   color: #721c24;
-  font-size: 12px; /* Hacer el botón más pequeño */
-  position: absolute;
+  font-size: 12px;
+  position: absolute; /* Mover el botón a la esquina superior izquierda */
   top: 5px;
-  right: 5px; /* Mover el botón a la esquina superior izquierda */
+  right: 5px;
   cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  width: 20px; /* Definir el ancho del botón */
-  height: 20px; /* Definir la altura del botón */
+  padding: 0; /* Definir el ancho del botón */
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -377,7 +309,6 @@ button {
   outline: none;
 }
 
-/* styles.css */
 .maintenance {
   display: flex;
   flex-direction: column;
