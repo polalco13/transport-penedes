@@ -1,7 +1,7 @@
 import { Analytics } from "@vercel/analytics/react";
 import React, { useState, useEffect } from 'react';
-import rutasAgostData from './data/rutasAgost.json';
-import horariosAgostData from './data/horariosAgost.json';
+import rutasAgostData from './data/rutas.json';
+import horariosAgostData from './data/horarios.json';
 import './styles.css';
 
 function App() {
