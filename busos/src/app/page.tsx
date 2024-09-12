@@ -274,5 +274,6 @@ export default function BusScheduleApp() {
         </div>
       </motion.div>
     </div>
+    
   )
 }
