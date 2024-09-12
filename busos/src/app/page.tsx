@@ -8,23 +8,37 @@ import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock } from 'lucide-rea
 import horaris from './data/horaris.json'
 import rutes from './data/rutes.json'
 
-const daysOfWeek = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte']
+const daysOfWeek = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'] as const
+type DayOfWeek = typeof daysOfWeek[number]
+
+type Horari = {
+  ruta_id: number;
+  horarios: { [key in DayOfWeek]: string[] };
+}
+
+type Ruta = {
+  id: number;
+  origen: string;
+  destino: string;
+  latitud_origen: number;
+  longitud_origen: number;
+}
 
 export default function BusScheduleApp() {
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
-  const [selectedDay, setSelectedDay] = useState('')
-  const [schedule, setSchedule] = useState([])
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Dilluns')
+  const [schedule, setSchedule] = useState<string[]>([])
   const [showFullSchedule, setShowFullSchedule] = useState(false)
-  const [fullSchedule, setFullSchedule] = useState([])
+  const [fullSchedule, setFullSchedule] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const availableOrigins = useMemo(() => Array.from(new Set(rutes.map(ruta => ruta.origen))), [])
+  const availableOrigins = useMemo(() => Array.from(new Set(rutes.map((ruta: Ruta) => ruta.origen))), [])
   
   const availableDestinations = useMemo(() => {
     if (!origin) return []
-    return Array.from(new Set(rutes.filter(ruta => ruta.origen === origin).map(ruta => ruta.destino)))
+    return Array.from(new Set(rutes.filter((ruta: Ruta) => ruta.origen === origin).map(ruta => ruta.destino)))
   }, [origin])
 
   const handleSwap = () => {
@@ -34,14 +48,14 @@ export default function BusScheduleApp() {
 
   const getRutaId = () => {
     const ruta = rutes.find(
-      (ruta) => ruta.origen === origin && ruta.destino === destination
+      (ruta: Ruta) => ruta.origen === origin && ruta.destino === destination
     )
     return ruta ? ruta.id : null
   }
 
   useEffect(() => {
     const currentDate = new Date()
-    const today = daysOfWeek[currentDate.getDay()]
+    const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
     setSelectedDay(today)
   }, [])
 
@@ -56,7 +70,7 @@ export default function BusScheduleApp() {
   const handleSearch = () => {
     const currentDate = new Date()
     const currentHour = currentDate.toTimeString().slice(0, 5)
-    const today = daysOfWeek[currentDate.getDay()]
+    const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
 
     const rutaId = getRutaId()
     if (!rutaId) {
@@ -65,14 +79,15 @@ export default function BusScheduleApp() {
       return
     }
 
-    const horariForRuta = horaris.find((horari) => horari.ruta_id === rutaId)
+    const horariForRuta = horaris.find((horari: Horari) => horari.ruta_id === rutaId)
     if (!horariForRuta) {
       setNoMoreBusesMessage("No s'han trobat horaris per aquesta ruta")
       setSchedule([])
       return
     }
 
-    const horariosForDay = horariForRuta.horarios[selectedDay || today] || []
+    const dayToUse: DayOfWeek = (selectedDay || today) as DayOfWeek
+    const horariosForDay = horariForRuta.horarios[dayToUse] || []
 
     const upcomingBuses = horariosForDay.filter((time) => time >= currentHour).slice(0, 3)
 
@@ -88,13 +103,13 @@ export default function BusScheduleApp() {
       return
     }
 
-    const horariForRuta = horaris.find((horari) => horari.ruta_id === rutaId)
+    const horariForRuta = horaris.find((horari: Horari) => horari.ruta_id === rutaId)
     if (!horariForRuta) {
       setFullSchedule([])
       return
     }
 
-    const horariosForDay = horariForRuta.horarios[selectedDay] || []
+    const horariosForDay = horariForRuta.horarios[selectedDay as DayOfWeek] || []
 
     setFullSchedule(horariosForDay)
     setShowFullSchedule(!showFullSchedule)
@@ -108,7 +123,7 @@ export default function BusScheduleApp() {
         let closestOrigin = ''
         let minDistance = Infinity
 
-        rutes.forEach((ruta) => {
+        rutes.forEach((ruta: Ruta) => {
           const distance = Math.sqrt(
             Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
           )
@@ -152,7 +167,6 @@ export default function BusScheduleApp() {
                 ))}
               </SelectContent>
             </Select>
-            
 
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -185,7 +199,7 @@ export default function BusScheduleApp() {
             </Button>
           </motion.div>
 
-          <Select onValueChange={setSelectedDay} value={selectedDay}>
+          <Select onValueChange={(value) => setSelectedDay(value as DayOfWeek)} value={selectedDay}>
             <SelectTrigger className="w-full border-gray-300 bg-white text-gray-900 focus:ring-blue-500 focus:border-blue-500">
               <Calendar className="w-5 h-5 mr-2 text-blue-600" />
               <SelectValue placeholder="Selecciona un dia" />
@@ -275,6 +289,5 @@ export default function BusScheduleApp() {
         </div>
       </motion.div>
     </div>
-    
   )
 }
