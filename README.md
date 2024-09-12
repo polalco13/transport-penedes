@@ -66,4 +66,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-[Specify the license here, e.g., MIT License]
+MIT License
