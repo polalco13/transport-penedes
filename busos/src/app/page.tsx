@@ -155,7 +155,7 @@ export default function BusScheduleApp() {
   
     const allHorarios = horaris
       .filter((horari: Horari) => rutaIds.includes(horari.ruta_id))
-      .flatMap((horari: Horari) => horari.horarios[selectedDay as DayOfWeek] || [])
+      .flatMap((horari: Horari) => horari.horarios[selectedDay] || [])
       .sort((a, b) => {
         const [aHours, aMinutes] = a.split(':').map(Number)
         const [bHours, bMinutes] = b.split(':').map(Number)
