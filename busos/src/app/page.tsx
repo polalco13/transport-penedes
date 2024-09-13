@@ -89,10 +89,18 @@ export default function BusScheduleApp() {
     const dayToUse: DayOfWeek = (selectedDay || today) as DayOfWeek
     const horariosForDay = horariForRuta.horarios[dayToUse] || []
 
-    const upcomingBuses = horariosForDay.filter((time) => time >= currentHour).slice(0, 3)
+    // Filter buses that are after the current time
+    const upcomingBuses = horariosForDay.filter((time) => time > currentHour)
 
-    setSchedule(upcomingBuses)
-    setNoMoreBusesMessage(upcomingBuses.length === 0 ? 'No hi ha més autobusos per avui' : '')
+    if (upcomingBuses.length === 0) {
+      setNoMoreBusesMessage('No hi ha més autobusos per avui')
+      setSchedule([])
+    } else {
+      // Get the next 3 buses
+      setSchedule(upcomingBuses.slice(0, 3))
+      setNoMoreBusesMessage('')
+    }
+
     setShowFullSchedule(false)
   }
 
