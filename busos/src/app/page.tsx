@@ -84,7 +84,7 @@ export default function BusScheduleApp() {
       return
     }
 
-    let results: BusResult[] = []
+    const results: BusResult[] = []
 
     horaris.forEach((horari: Horari) => {
       if (rutaIds.includes(horari.ruta_id)) {
