@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -39,7 +39,20 @@ export default function BusScheduleApp() {
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(true)
+
+  useEffect(() => {
+    // Comprobar la preferencia del sistema
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    setDarkMode(prefersDark)
+
+    // Escuchar cambios en la preferencia del sistema
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e: MediaQueryListEvent) => setDarkMode(e.matches)
+    mediaQuery.addListener(handleChange)
+
+    return () => mediaQuery.removeListener(handleChange)
+  }, [])
 
   const availableOrigins = useMemo(() => Array.from(new Set(rutes.map((ruta: Ruta) => ruta.origen))), [])
   
@@ -48,10 +61,16 @@ export default function BusScheduleApp() {
     return Array.from(new Set(rutes.filter((ruta: Ruta) => ruta.origen === origin).map(ruta => ruta.destino)))
   }, [origin])
 
-  const handleSwap = () => {
-    setOrigin(destination)
-    setDestination(origin)
-  }
+  const handleSwap = useCallback(() => {
+    const tempOrigin = origin;
+    const tempDestination = destination;
+    setOrigin(tempDestination);
+    setDestination(tempOrigin);
+    // Forzar la actualización de los destinos disponibles
+    setTimeout(() => {
+      setDestination(tempOrigin);
+    }, 0);
+  }, [origin, destination]);
 
   const getRutaIds = () => {
     return rutes
@@ -77,59 +96,47 @@ export default function BusScheduleApp() {
     const currentDate = new Date()
     const currentHour = currentDate.toTimeString().slice(0, 5)
     const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
-
+  
     const rutaIds = getRutaIds()
     if (rutaIds.length === 0) {
       setNoMoreBusesMessage("No s'ha trobat la ruta")
       setSchedule([])
       return
     }
-
+  
     const results: BusResult[] = []
-
+  
     horaris.forEach((horari: Horari) => {
       if (rutaIds.includes(horari.ruta_id)) {
-        let dayToCheck: DayOfWeek = selectedDay || today
-        let daysChecked = 0
-
-        while (daysChecked < 7) {
-          const horariosForDay = horari.horarios[dayToCheck] || []
-          
-          horariosForDay.forEach(hora_salida => {
-            if (dayToCheck === today && hora_salida <= currentHour) return
-            
+        const horariosForDay = horari.horarios[today] || []
+        
+        horariosForDay.forEach(hora_salida => {
+          if (hora_salida > currentHour) {
             results.push({
               ruta_id: horari.ruta_id,
               hora_salida: hora_salida,
-              dia_semana: dayToCheck
+              dia_semana: today
             })
-          })
-
-          if (results.length >= 3) break
-
-          dayToCheck = daysOfWeek[(daysOfWeek.indexOf(dayToCheck) + 1) % 7] as DayOfWeek
-          daysChecked++
-        }
+          }
+        })
       }
     })
-
-    results.sort((a, b) => {
-      const dayDiff = daysOfWeek.indexOf(a.dia_semana) - daysOfWeek.indexOf(b.dia_semana)
-      if (dayDiff !== 0) return dayDiff
-      return a.hora_salida.localeCompare(b.hora_salida)
-    })
-
+  
+    results.sort((a, b) => a.hora_salida.localeCompare(b.hora_salida))
+  
     const nextThreeBuses = results.slice(0, 3)
-
+  
     if (nextThreeBuses.length === 0) {
-      setNoMoreBusesMessage("No s'han trobat més autobusos disponibles")
+      setNoMoreBusesMessage("No queden autobusos disponibles per avui")
+      setSchedule([])
     } else if (nextThreeBuses.length < 3) {
-      setNoMoreBusesMessage("Aquests són tots els autobusos disponibles")
+      setNoMoreBusesMessage("No queden més autobusos disponibles per avui")
+      setSchedule(nextThreeBuses)
     } else {
       setNoMoreBusesMessage('')
+      setSchedule(nextThreeBuses)
     }
-
-    setSchedule(nextThreeBuses)
+  
     setShowFullSchedule(false)
   }
 
@@ -331,7 +338,7 @@ export default function BusScheduleApp() {
                         className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} flex items-center mb-3 text-lg`}
                       >
                         <Clock className={`w-5 h-5 mr-3 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                        {time}
+                        {time} - {selectedDay}
                       </motion.p>
                     ))
                   ) : (
