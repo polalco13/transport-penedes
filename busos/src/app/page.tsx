@@ -133,7 +133,7 @@ export default function BusScheduleApp() {
     const nextThreeBuses = results.slice(0, 3)
   
     if (nextThreeBuses.length === 0) {
-      setNoMoreBusesMessage("No queden més autobusos disponibles per avui")
+      setNoMoreBusesMessage("No queden més autobusos disponibles per avu")
       setSchedule([])
     } else if (nextThreeBuses.length < 3) {
       setNoMoreBusesMessage("No quedan més autobusos disponibles")
