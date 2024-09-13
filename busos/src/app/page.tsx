@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock } from 'lucide-react'
+import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock, Moon, Sun } from 'lucide-react'
 import horaris from './data/horaris.json'
 import rutes from './data/rutes.json'
 
@@ -39,6 +39,7 @@ export default function BusScheduleApp() {
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
 
   const availableOrigins = useMemo(() => Array.from(new Set(rutes.map((ruta: Ruta) => ruta.origen))), [])
   
@@ -138,12 +139,16 @@ export default function BusScheduleApp() {
       setFullSchedule([])
       return
     }
-
+  
     const allHorarios = horaris
       .filter((horari: Horari) => rutaIds.includes(horari.ruta_id))
       .flatMap((horari: Horari) => horari.horarios[selectedDay as DayOfWeek] || [])
-      .sort()
-
+      .sort((a, b) => {
+        const [aHours, aMinutes] = a.split(':').map(Number)
+        const [bHours, bMinutes] = b.split(':').map(Number)
+        return aHours * 60 + aMinutes - (bHours * 60 + bMinutes)
+      })
+  
     setFullSchedule(allHorarios)
     setShowFullSchedule(!showFullSchedule)
   }
@@ -173,23 +178,40 @@ export default function BusScheduleApp() {
     }
   }
 
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode)
+  }
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 text-gray-900 p-4">
+    <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} p-4`}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-lg p-6 bg-white rounded-lg shadow-md"
+        className={`w-full max-w-lg p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md`}
       >
-        <div className="flex items-center mb-8">
-          <Bus className="w-12 h-12 text-blue-600 mr-4" />
-          <h1 className="text-3xl font-bold text-blue-600">Busos del Penedès</h1>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center">
+            <Bus className={`w-12 h-12 ${darkMode ? 'text-blue-400' : 'text-blue-600'} mr-4`} />
+            <h1 className={`text-3xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Busos del Penedès</h1>
+          </div>
+          <Button onClick={toggleDarkMode} variant="ghost" size="icon" className={darkMode ? 'text-yellow-400' : 'text-gray-600'}>
+            {darkMode ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+          </Button>
         </div>
 
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
             <Select onValueChange={setOrigin} value={origin}>
-              <SelectTrigger className="w-full sm:w-40 border-gray-300 bg-white text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+              <SelectTrigger className={`w-full sm:w-40 border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
                 <SelectValue placeholder="Origen" />
               </SelectTrigger>
               <SelectContent>
@@ -205,14 +227,14 @@ export default function BusScheduleApp() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleSwap}
-              className="p-3 bg-blue-100 rounded-full transition-colors duration-200 hover:bg-blue-200"
+              className={`p-3 ${darkMode ? 'bg-blue-900' : 'bg-blue-100'} rounded-full transition-colors duration-200 ${darkMode ? 'hover:bg-blue-800' : 'hover:bg-blue-200'}`}
               aria-label="Intercanviar origen i destinació"
             >
-              <ArrowLeftRight className="w-6 h-6 text-blue-600" />
+              <ArrowLeftRight className={`w-6 h-6 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
             </motion.button>
 
             <Select onValueChange={setDestination} value={destination} disabled={!origin}>
-              <SelectTrigger className="w-full sm:w-40 border-gray-300 bg-white text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+              <SelectTrigger className={`w-full sm:w-40 border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
                 <SelectValue placeholder="Destinació" />
               </SelectTrigger>
               <SelectContent>
@@ -226,15 +248,15 @@ export default function BusScheduleApp() {
           </div>
 
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button onClick={handleSearch} className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200 text-lg py-6">
+            <Button onClick={handleSearch} className={`w-full ${darkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'} text-white transition-colors duration-200 text-lg py-6`}>
               <Search className="w-5 h-5 mr-2" />
               Troba els propers 3 autobusos
             </Button>
           </motion.div>
 
           <Select onValueChange={(value) => setSelectedDay(value as DayOfWeek)} value={selectedDay}>
-            <SelectTrigger className="w-full border-gray-300 bg-white text-gray-900 focus:ring-blue-500 focus:border-blue-500">
-              <Calendar className="w-5 h-5 mr-2 text-blue-600" />
+            <SelectTrigger className={`w-full border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
+              <Calendar className={`w-5 h-5 mr-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
               <SelectValue placeholder="Selecciona un dia" />
             </SelectTrigger>
             <SelectContent>
@@ -255,17 +277,17 @@ export default function BusScheduleApp() {
                 transition={{ duration: 0.3 }}
                 className="mt-6"
               >
-                <h2 className="text-xl font-semibold mb-4 text-blue-600">Propers Autobusos</h2>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h2 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Propers Autobusos</h2>
+                <div className={`${darkMode ? 'bg-gray-700' : 'bg-blue-50'} p-4 rounded-lg ${darkMode ? 'border-gray-600' : 'border-blue-200'} border`}>
                   {schedule.map((bus, index) => (
                     <motion.p
                       key={index}
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="text-gray-800 flex items-center mb-3 text-lg"
+                      className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} flex items-center mb-3 text-lg`}
                     >
-                      <Clock className="w-5 h-5 mr-3 text-blue-600" />
+                      <Clock className={`w-5 h-5 mr-3 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
                       {bus.hora_salida} - {bus.dia_semana}
                     </motion.p>
                   ))}
@@ -275,14 +297,14 @@ export default function BusScheduleApp() {
           </AnimatePresence>
 
           {noMoreBusesMessage && (
-            <p className="text-gray-600 mt-4 text-center">{noMoreBusesMessage}</p>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mt-4 text-center`}>{noMoreBusesMessage}</p>
           )}
 
           <div className="flex flex-col sm:flex-row justify-between mt-6 space-y-4 sm:space-y-0 sm:space-x-4">
-            <Button onClick={handleShowFullSchedule} className="w-full sm:w-auto bg-gray-200 hover:bg-gray-300 text-gray-800 transition-colors duration-200 py-6">
+            <Button onClick={handleShowFullSchedule} className={`w-full sm:w-auto ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors duration-200 py-6`}>
               {showFullSchedule ? 'Amaga Horaris' : 'Mostra Horaris'}
             </Button>
-            <Button onClick={detectLocation} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200 py-6" disabled={loading}>
+            <Button onClick={detectLocation} className={`w-full sm:w-auto ${darkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'} text-white transition-colors duration-200 py-6`} disabled={loading}>
               <MapPin className="w-5 h-5 mr-2" />
               {loading ? 'Detectant...' : 'Detectar Ubicació'}
             </Button>
@@ -297,8 +319,8 @@ export default function BusScheduleApp() {
                 transition={{ duration: 0.3 }}
                 className="mt-6"
               >
-                <h2 className="text-xl font-semibold mb-4 text-blue-600">Horari Complet</h2>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 max-h-60 overflow-y-auto">
+                <h2 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Horari Complet</h2>
+                <div className={`${darkMode ? 'bg-gray-700' : 'bg-blue-50'} p-4 rounded-lg ${darkMode ? 'border-gray-600' : 'border-blue-200'} border max-h-60 overflow-y-auto`}>
                   {fullSchedule.length > 0 ? (
                     fullSchedule.map((time, index) => (
                       <motion.p
@@ -306,14 +328,14 @@ export default function BusScheduleApp() {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.02 }}
-                        className="text-gray-800 flex items-center mb-3 text-lg"
+                        className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} flex items-center mb-3 text-lg`}
                       >
-                        <Clock className="w-5 h-5 mr-3 text-blue-600" />
+                        <Clock className={`w-5 h-5 mr-3 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
                         {time}
                       </motion.p>
                     ))
                   ) : (
-                    <p className="text-gray-600">No hi ha horaris complets disponibles</p>
+                    <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No hi ha horaris complets disponibles</p>
                   )}
                 </div>
               </motion.div>
