@@ -94,12 +94,13 @@ export default function BusScheduleApp() {
 
   const handleSearch = () => {
     const currentDate = new Date()
-    const currentHour = currentDate.toTimeString().slice(0, 5)
+    const currentHour = currentDate.getHours()
+    const currentMinute = currentDate.getMinutes()
     const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
   
     const rutaIds = getRutaIds()
     if (rutaIds.length === 0) {
-      setNoMoreBusesMessage("No s'ha trobat la ruta")
+      setNoMoreBusesMessage("No se ha encontrado la ruta")
       setSchedule([])
       return
     }
@@ -111,7 +112,8 @@ export default function BusScheduleApp() {
         const horariosForDay = horari.horarios[today] || []
         
         horariosForDay.forEach(hora_salida => {
-          if (hora_salida > currentHour) {
+          const [hours, minutes] = hora_salida.split(':').map(Number)
+          if (hours > currentHour || (hours === currentHour && minutes > currentMinute)) {
             results.push({
               ruta_id: horari.ruta_id,
               hora_salida: hora_salida,
@@ -122,15 +124,19 @@ export default function BusScheduleApp() {
       }
     })
   
-    results.sort((a, b) => a.hora_salida.localeCompare(b.hora_salida))
+    results.sort((a, b) => {
+      const [aHours, aMinutes] = a.hora_salida.split(':').map(Number)
+      const [bHours, bMinutes] = b.hora_salida.split(':').map(Number)
+      return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes)
+    })
   
     const nextThreeBuses = results.slice(0, 3)
   
     if (nextThreeBuses.length === 0) {
-      setNoMoreBusesMessage("No queden autobusos disponibles per avui")
+      setNoMoreBusesMessage("No quedan autobuses disponibles para hoy")
       setSchedule([])
     } else if (nextThreeBuses.length < 3) {
-      setNoMoreBusesMessage("No queden més autobusos disponibles per avui")
+      setNoMoreBusesMessage("No quedan más autobuses disponibles para hoy")
       setSchedule(nextThreeBuses)
     } else {
       setNoMoreBusesMessage('')
