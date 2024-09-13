@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -24,11 +24,17 @@ type Ruta = {
   longitud_origen: number;
 }
 
+type BusResult = {
+  ruta_id: number;
+  hora_salida: string;
+  dia_semana: DayOfWeek;
+}
+
 export default function BusScheduleApp() {
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Dilluns')
-  const [schedule, setSchedule] = useState<string[]>([])
+  const [schedule, setSchedule] = useState<BusResult[]>([])
   const [showFullSchedule, setShowFullSchedule] = useState(false)
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
@@ -46,11 +52,10 @@ export default function BusScheduleApp() {
     setDestination(origin)
   }
 
-  const getRutaId = () => {
-    const ruta = rutes.find(
-      (ruta: Ruta) => ruta.origen === origin && ruta.destino === destination
-    )
-    return ruta ? ruta.id : null
+  const getRutaIds = () => {
+    return rutes
+      .filter((ruta: Ruta) => ruta.origen === origin && ruta.destino === destination)
+      .map(ruta => ruta.id)
   }
 
   useEffect(() => {
@@ -72,54 +77,74 @@ export default function BusScheduleApp() {
     const currentHour = currentDate.toTimeString().slice(0, 5)
     const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
 
-    const rutaId = getRutaId()
-    if (!rutaId) {
+    const rutaIds = getRutaIds()
+    if (rutaIds.length === 0) {
       setNoMoreBusesMessage("No s'ha trobat la ruta")
       setSchedule([])
       return
     }
 
-    const horariForRuta = horaris.find((horari: Horari) => horari.ruta_id === rutaId)
-    if (!horariForRuta) {
-      setNoMoreBusesMessage("No s'han trobat horaris per aquesta ruta")
-      setSchedule([])
-      return
-    }
+    let results: BusResult[] = []
 
-    const dayToUse: DayOfWeek = (selectedDay || today) as DayOfWeek
-    const horariosForDay = horariForRuta.horarios[dayToUse] || []
+    horaris.forEach((horari: Horari) => {
+      if (rutaIds.includes(horari.ruta_id)) {
+        let dayToCheck: DayOfWeek = selectedDay || today
+        let daysChecked = 0
 
-    // Filter buses that are after the current time
-    const upcomingBuses = horariosForDay.filter((time) => time > currentHour)
+        while (daysChecked < 7) {
+          const horariosForDay = horari.horarios[dayToCheck] || []
+          
+          horariosForDay.forEach(hora_salida => {
+            if (dayToCheck === today && hora_salida <= currentHour) return
+            
+            results.push({
+              ruta_id: horari.ruta_id,
+              hora_salida: hora_salida,
+              dia_semana: dayToCheck
+            })
+          })
 
-    if (upcomingBuses.length === 0) {
-      setNoMoreBusesMessage('No hi ha més autobusos per avui')
-      setSchedule([])
+          if (results.length >= 3) break
+
+          dayToCheck = daysOfWeek[(daysOfWeek.indexOf(dayToCheck) + 1) % 7] as DayOfWeek
+          daysChecked++
+        }
+      }
+    })
+
+    results.sort((a, b) => {
+      const dayDiff = daysOfWeek.indexOf(a.dia_semana) - daysOfWeek.indexOf(b.dia_semana)
+      if (dayDiff !== 0) return dayDiff
+      return a.hora_salida.localeCompare(b.hora_salida)
+    })
+
+    const nextThreeBuses = results.slice(0, 3)
+
+    if (nextThreeBuses.length === 0) {
+      setNoMoreBusesMessage("No s'han trobat més autobusos disponibles")
+    } else if (nextThreeBuses.length < 3) {
+      setNoMoreBusesMessage("Aquests són tots els autobusos disponibles")
     } else {
-      // Get the next 3 buses
-      setSchedule(upcomingBuses.slice(0, 3))
       setNoMoreBusesMessage('')
     }
 
+    setSchedule(nextThreeBuses)
     setShowFullSchedule(false)
   }
 
   const handleShowFullSchedule = () => {
-    const rutaId = getRutaId()
-    if (!rutaId) {
+    const rutaIds = getRutaIds()
+    if (rutaIds.length === 0) {
       setFullSchedule([])
       return
     }
 
-    const horariForRuta = horaris.find((horari: Horari) => horari.ruta_id === rutaId)
-    if (!horariForRuta) {
-      setFullSchedule([])
-      return
-    }
+    const allHorarios = horaris
+      .filter((horari: Horari) => rutaIds.includes(horari.ruta_id))
+      .flatMap((horari: Horari) => horari.horarios[selectedDay as DayOfWeek] || [])
+      .sort()
 
-    const horariosForDay = horariForRuta.horarios[selectedDay as DayOfWeek] || []
-
-    setFullSchedule(horariosForDay)
+    setFullSchedule(allHorarios)
     setShowFullSchedule(!showFullSchedule)
   }
 
@@ -232,7 +257,7 @@ export default function BusScheduleApp() {
               >
                 <h2 className="text-xl font-semibold mb-4 text-blue-600">Propers Autobusos</h2>
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  {schedule.map((time, index) => (
+                  {schedule.map((bus, index) => (
                     <motion.p
                       key={index}
                       initial={{ opacity: 0, y: -10 }}
@@ -241,7 +266,7 @@ export default function BusScheduleApp() {
                       className="text-gray-800 flex items-center mb-3 text-lg"
                     >
                       <Clock className="w-5 h-5 mr-3 text-blue-600" />
-                      {time}
+                      {bus.hora_salida} - {bus.dia_semana}
                     </motion.p>
                   ))}
                 </div>
