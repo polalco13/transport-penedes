@@ -4,33 +4,14 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock, Moon, Sun } from 'lucide-react'
-import horaris from './data/horaris.json'
-import rutes from './data/rutes.json'
-
-const daysOfWeek = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'] as const
-type DayOfWeek = typeof daysOfWeek[number]
-
-type Horari = {
-  ruta_id: number;
-  horarios: { [key in DayOfWeek]: string[] };
-}
-
-type Ruta = {
-  id: number;
-  origen: string;
-  destino: string;
-  latitud_origen: number;
-  longitud_origen: number;
-}
-
-type BusResult = {
-  ruta_id: number;
-  hora_salida: string;
-  dia_semana: DayOfWeek;
-}
+import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock, Moon, Sun, Star, AlertTriangle } from 'lucide-react'
+import { daysOfWeek, type DayOfWeek, type Horari, type Ruta, type BusResult, type FavoriteRoute, type ServiceAlert } from '@/lib/types';
 
 export default function BusScheduleApp() {
+  const [allHoraris, setAllHoraris] = useState<Horari[]>([])
+  const [allRutes, setAllRutes] = useState<Ruta[]>([])
+  const [favoriteRoutes, setFavoriteRoutes] = useState<FavoriteRoute[]>([]);
+  const [serviceAlerts, setServiceAlerts] = useState<ServiceAlert[]>([]);
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Dilluns')
@@ -38,8 +19,50 @@ export default function BusScheduleApp() {
   const [showFullSchedule, setShowFullSchedule] = useState(false)
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false) // For location detection and search
+  const [dataLoading, setDataLoading] = useState(true) // For initial data load
+  const [dataError, setDataError] = useState<string | null>(null)
   const [darkMode, setDarkMode] = useState(true)
+
+  useEffect(() => {
+    async function fetchInitialData() {
+      try {
+        setDataLoading(true);
+        // Fetch schedules, routes, and alerts in parallel
+        const [horarisRes, rutesRes, alertsRes] = await Promise.all([
+          fetch('/api/schedules'),
+          fetch('/api/routes'),
+          fetch('/api/alerts') // Fetches active alerts
+        ]);
+
+        if (!horarisRes.ok) throw new Error(`Failed to fetch schedules: ${horarisRes.statusText}`);
+        const horarisData = await horarisRes.json();
+        setAllHoraris(horarisData);
+
+        if (!rutesRes.ok) throw new Error(`Failed to fetch routes: ${rutesRes.statusText}`);
+        const rutesData = await rutesRes.json();
+        setAllRutes(rutesData);
+
+        if (!alertsRes.ok) throw new Error(`Failed to fetch alerts: ${alertsRes.statusText}`);
+        const alertsData = await alertsRes.json();
+        setServiceAlerts(alertsData);
+
+        setDataError(null);
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        setDataError(error instanceof Error ? error.message : "An unknown error occurred");
+      } finally {
+        setDataLoading(false);
+      }
+    }
+    fetchInitialData();
+
+    // Load favorites from local storage
+    const storedFavorites = localStorage.getItem('favoriteRoutes');
+    if (storedFavorites) {
+      setFavoriteRoutes(JSON.parse(storedFavorites));
+    }
+  }, []) // Empty dependency array means this runs once on mount
 
   useEffect(() => {
     // Comprobar la preferencia del sistema
@@ -54,12 +77,12 @@ export default function BusScheduleApp() {
     return () => mediaQuery.removeListener(handleChange)
   }, [])
 
-  const availableOrigins = useMemo(() => Array.from(new Set(rutes.map((ruta: Ruta) => ruta.origen))), [])
+  const availableOrigins = useMemo(() => Array.from(new Set(allRutes.map((ruta: Ruta) => ruta.origen))), [allRutes])
   
   const availableDestinations = useMemo(() => {
-    if (!origin) return []
-    return Array.from(new Set(rutes.filter((ruta: Ruta) => ruta.origen === origin).map(ruta => ruta.destino)))
-  }, [origin])
+    if (!origin || allRutes.length === 0) return []
+    return Array.from(new Set(allRutes.filter((ruta: Ruta) => ruta.origen === origin).map(ruta => ruta.destino)))
+  }, [origin, allRutes])
 
   const handleSwap = useCallback(() => {
     const tempOrigin = origin;
@@ -72,11 +95,12 @@ export default function BusScheduleApp() {
     }, 0);
   }, [origin, destination]);
 
-  const getRutaIds = () => {
-    return rutes
+  const getRutaIds = useCallback(() => {
+    if (!origin || !destination || allRutes.length === 0) return []
+    return allRutes
       .filter((ruta: Ruta) => ruta.origen === origin && ruta.destino === destination)
       .map(ruta => ruta.id)
-  }
+  }, [origin, destination, allRutes])
 
   useEffect(() => {
     const currentDate = new Date()
@@ -106,8 +130,14 @@ export default function BusScheduleApp() {
     }
   
     const results: BusResult[] = []
+
+    if (allHoraris.length === 0) {
+      setNoMoreBusesMessage("Horaris no disponibles momentàniament.")
+      setSchedule([])
+      return
+    }
   
-    horaris.forEach((horari: Horari) => {
+    allHoraris.forEach((horari: Horari) => {
       if (rutaIds.includes(horari.ruta_id)) {
         const horariosForDay = horari.horarios[today] || []
         
@@ -133,10 +163,13 @@ export default function BusScheduleApp() {
     const nextThreeBuses = results.slice(0, 3)
   
     if (nextThreeBuses.length === 0) {
-      setNoMoreBusesMessage("No queden més autobusos disponibles per avui")
+      setNoMoreBusesMessage(`No queden més autobusos disponibles per avui des de ${origin} a ${destination}.`)
       setSchedule([])
     } else if (nextThreeBuses.length < 3) {
-      setNoMoreBusesMessage("No quedan més autobusos disponibles")
+      // This message might be confusing if it shows 1 or 2 buses.
+      // Better to just show the buses and not have a "no more" message unless it's truly zero.
+      // Or, "Aquests són els últims autobusos per avui."
+      setNoMoreBusesMessage(`Aquests són els propers autobusos per avui. No n'hi ha més programats després.`)
       setSchedule(nextThreeBuses)
     } else {
       setNoMoreBusesMessage('')
@@ -150,10 +183,21 @@ export default function BusScheduleApp() {
     const rutaIds = getRutaIds()
     if (rutaIds.length === 0) {
       setFullSchedule([])
+      // It's good to provide feedback if trying to show full schedule for a non-existent route.
+      // However, the button to trigger this is usually shown after selecting origin/dest.
+      // This case might be if origin/dest are cleared after results were shown.
       return
     }
+
+    if (allHoraris.length === 0) {
+      setFullSchedule([])
+      // Maybe set a message specific to full schedule view if data is missing
+      // For now, handled by main data loading error.
+      setShowFullSchedule(!showFullSchedule) // Keep toggle behavior
+      return;
+    }
   
-    const allHorarios = horaris
+    const allHorariosTimes = allHoraris
       .filter((horari: Horari) => rutaIds.includes(horari.ruta_id))
       .flatMap((horari: Horari) => horari.horarios[selectedDay] || [])
       .sort((a, b) => {
@@ -162,11 +206,16 @@ export default function BusScheduleApp() {
         return aHours * 60 + aMinutes - (bHours * 60 + bMinutes)
       })
   
-    setFullSchedule(allHorarios)
+    setFullSchedule(allHorariosTimes)
     setShowFullSchedule(!showFullSchedule)
   }
 
   const detectLocation = () => {
+    if (allRutes.length === 0) {
+      // Optionally set a message that detection cannot work without route data
+      alert("Les dades de les rutes encara no s'han carregat. Si us plau, espera un moment.");
+      return;
+    }
     setLoading(true)
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((position) => {
@@ -174,7 +223,7 @@ export default function BusScheduleApp() {
         let closestOrigin = ''
         let minDistance = Infinity
 
-        rutes.forEach((ruta: Ruta) => {
+        allRutes.forEach((ruta: Ruta) => {
           const distance = Math.sqrt(
             Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
           )
@@ -185,9 +234,13 @@ export default function BusScheduleApp() {
         })
         setOrigin(closestOrigin)
         setLoading(false)
-      }, () => setLoading(false))
+      }, () => {
+        setLoading(false)
+        alert("No s'ha pogut obtenir la ubicació.")
+      })
     } else {
       setLoading(false)
+      alert("La geolocalització no és compatible amb aquest navegador.")
     }
   }
 
@@ -202,6 +255,48 @@ export default function BusScheduleApp() {
       document.documentElement.classList.remove('dark')
     }
   }, [darkMode])
+
+  const isFavorite = useMemo(() => {
+    if (!origin || !destination) return false;
+    return favoriteRoutes.some(fr => fr.origin === origin && fr.destination === destination);
+  }, [origin, destination, favoriteRoutes]);
+
+  const toggleFavorite = () => {
+    if (!origin || !destination) return;
+
+    const currentRoute: FavoriteRoute = { origin, destination };
+    let updatedFavorites: FavoriteRoute[];
+
+    if (isFavorite) {
+      updatedFavorites = favoriteRoutes.filter(
+        fr => fr.origin !== origin || fr.destination !== destination
+      );
+    } else {
+      updatedFavorites = [...favoriteRoutes, currentRoute];
+    }
+    setFavoriteRoutes(updatedFavorites);
+    localStorage.setItem('favoriteRoutes', JSON.stringify(updatedFavorites));
+  };
+
+  if (dataLoading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} p-4`}>
+        <p className="text-xl">Carregant dades dels horaris...</p>
+      </div>
+    )
+  }
+
+  if (dataError) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} p-4`}>
+        <div className="text-center">
+          <p className="text-xl text-red-500">Error en carregar les dades:</p>
+          <p className="text-md text-red-400">{dataError}</p>
+          <p className="mt-4">Si us plau, intenta actualitzar la pàgina o contacta amb el suport si el problema persisteix.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} p-4`}>
@@ -221,20 +316,69 @@ export default function BusScheduleApp() {
           </Button>
         </div>
 
+        {/* Service Alerts Display */}
+        {serviceAlerts.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-yellow-100 dark:bg-yellow-700 border border-yellow-300 dark:border-yellow-600 rounded-lg shadow"
+          >
+            <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 flex items-center mb-2">
+              <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600 dark:text-yellow-400" />
+              Alertes de Servei
+            </h3>
+            <ul className="list-disc list-inside space-y-1 text-yellow-700 dark:text-yellow-300">
+              {serviceAlerts.map(alert => (
+                <li key={alert.id}>{alert.message}</li>
+              ))}
+            </ul>
+          </motion.div>
+        )}
+
+        {/* Favorite Routes Display */}
+        {favoriteRoutes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>Rutes Preferides:</h3>
+            <div className="flex flex-wrap gap-2">
+              {favoriteRoutes.map((fr, index) => (
+                <motion.button
+                  key={index}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setOrigin(fr.origin);
+                    // Ensure destination dropdown is repopulated correctly after origin changes
+                    setTimeout(() => setDestination(fr.destination), 0);
+                  }}
+                  className={`px-3 py-2 rounded-md text-sm ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+                >
+                  {fr.origin} &rarr; {fr.destination}
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <Select onValueChange={setOrigin} value={origin}>
-              <SelectTrigger className={`w-full sm:w-40 border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
-                <SelectValue placeholder="Origen" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableOrigins.map((origen) => (
-                  <SelectItem key={origen} value={origen}>
-                    {origen}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex-grow">
+              <Select onValueChange={setOrigin} value={origin} disabled={allRutes.length === 0}>
+                <SelectTrigger className={`w-full border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
+                  <SelectValue placeholder="Origen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableOrigins.map((origen) => (
+                    <SelectItem key={origen} value={origen}>
+                      {origen}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -246,22 +390,34 @@ export default function BusScheduleApp() {
               <ArrowLeftRight className={`w-6 h-6 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
             </motion.button>
 
-            <Select onValueChange={setDestination} value={destination} disabled={!origin}>
-              <SelectTrigger className={`w-full sm:w-40 border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
-                <SelectValue placeholder="Destinació" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableDestinations.map((destino) => (
-                  <SelectItem key={destino} value={destino}>
-                    {destino}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex-grow">
+              <Select onValueChange={setDestination} value={destination} disabled={!origin || availableDestinations.length === 0}>
+                <SelectTrigger className={`w-full border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
+                  <SelectValue placeholder="Destinació" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDestinations.map((destino) => (
+                    <SelectItem key={destino} value={destino}>
+                      {destino}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+             <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleFavorite}
+              disabled={!origin || !destination}
+              className={`p-3 rounded-full transition-colors duration-200 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-300'} disabled:opacity-50 disabled:cursor-not-allowed`}
+              aria-label={isFavorite ? "Treure de preferits" : "Afegir a preferits"}
+            >
+              <Star className={`w-6 h-6 ${isFavorite ? (darkMode ? 'text-yellow-400 fill-yellow-400' : 'text-yellow-500 fill-yellow-500') : (darkMode ? 'text-gray-400' : 'text-gray-500')}`} />
+            </motion.button>
           </div>
 
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button onClick={handleSearch} className={`w-full ${darkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'} text-white transition-colors duration-200 text-lg py-6`}>
+            <Button onClick={handleSearch} disabled={!origin || !destination} className={`w-full ${darkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'} text-white transition-colors duration-200 text-lg py-6 disabled:opacity-70`}>
               <Search className="w-5 h-5 mr-2" />
               Troba els propers 3 autobusos
             </Button>
