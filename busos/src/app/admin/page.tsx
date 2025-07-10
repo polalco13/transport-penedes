@@ -3,27 +3,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { type Horari as AdminHorari, type Ruta as AdminRuta, type AdminManagedAlert } from '@/lib/types'; // Using aliased names if admin types differ, or direct if same
-
-// For admin, Horari might have string keys for days if JSON is less strict before parsing
-// For this case, we'll assume the structure from lib/types is what we expect after parsing.
-// If the admin interface ever deals with a less structured Horari (e.g. any string for day),
-// we might need a specific AdminHorari type. For now, let's use the main Horari.
-// However, Horari in types.ts uses DayOfWeek type for keys. JSON.parse will give strings.
-// So, for the raw text editing, it's more like `{[key: string]: string[]}`.
-// Let's define a simpler type for the state that holds raw parsed JSON from text areas.
-
-type RawHorarios = Omit<AdminHorari, 'horarios'> & { horarios: { [key: string]: string[] } };
-type RawRuta = AdminRuta; // Assuming Ruta structure is consistent
-
-import { Moon, Sun } from 'lucide-react'; // For dark mode toggle
+import { type AdminManagedAlert } from '@/lib/types'
+import { Moon, Sun } from 'lucide-react'
 
 export default function AdminPage() {
-  const [horaris, setHoraris] = useState<RawHorarios[]>([]) // Used for structured data if we ever build forms
-  const [rutes, setRutes] = useState<RawRuta[]>([]) // Same here
-  const [alerts, setAlerts] = useState<AdminManagedAlert[]>([])
   const [horarisText, setHorarisText] = useState('') // This holds the string from Textarea
   const [rutesText, setRutesText] = useState('') // This holds the string from Textarea
+  const [alerts, setAlerts] = useState<AdminManagedAlert[]>([])
   const [newAlertMessage, setNewAlertMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -90,13 +76,11 @@ export default function AdminPage() {
       const horarisRes = await fetch('/api/schedules')
       if (!horarisRes.ok) throw new Error(`Failed to fetch schedules: ${horarisRes.statusText}`)
       const horarisData = await horarisRes.json()
-      setHoraris(horarisData)
       setHorarisText(JSON.stringify(horarisData, null, 2))
 
       const rutesRes = await fetch('/api/routes')
       if (!rutesRes.ok) throw new Error(`Failed to fetch routes: ${rutesRes.statusText}`)
       const rutesData = await rutesRes.json()
-      setRutes(rutesData)
       setRutesText(JSON.stringify(rutesData, null, 2))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred')
@@ -107,7 +91,63 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+    fetchAdminAlerts()
+  }, [fetchData, fetchAdminAlerts])
+
+  const handleAddAlert = async () => {
+    if (!newAlertMessage.trim()) {
+      setAlertManagementError('El mensaje de alerta no puede estar vacío.');
+      return;
+    }
+
+    setAlertManagementError(null);
+    setAlertManagementStatus('Agregando nueva alerta...');
+    
+    try {
+      const response = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: newAlertMessage.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `Failed to add alert: ${response.statusText}` }));
+        throw new Error(errorData.message);
+      }
+
+      const newAlert = await response.json();
+      setAlerts(prev => [...prev, newAlert]);
+      setNewAlertMessage('');
+      setAlertManagementStatus('Alerta agregada correctamente.');
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : 'Error desconocido agregando alerta';
+      setAlertManagementError(errorMsg);
+      setAlertManagementStatus(null);
+    }
+  };
+
+  const handleDeleteAlert = async (alertId: string) => {
+    setAlertManagementError(null);
+    setAlertManagementStatus('Eliminando alerta...');
+    
+    try {
+      const response = await fetch(`/api/alerts?id=${alertId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `Failed to delete alert: ${response.statusText}` }));
+        throw new Error(errorData.message);
+      }
+
+      setAlerts(prev => prev.filter(alert => alert.id !== alertId));
+      setAlertManagementStatus('Alerta eliminada correctamente.');
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : 'Error desconocido eliminando alerta';
+      setAlertManagementError(errorMsg);
+      setAlertManagementStatus(null);
+    }
+  };
 
   const handleSaveChanges = async (dataType: 'schedules' | 'routes') => {
     setSaveStatus(`Saving ${dataType}...`)
@@ -146,9 +186,6 @@ export default function AdminPage() {
         throw new Error(errorData.message || `Failed to save ${dataType}`)
       }
       setSaveStatus(`${dataType} saved successfully!`)
-      // Optionally re-fetch data or update state optimistically
-      if (dataType === 'schedules' && dataToSave) setHoraris(dataToSave as Horari[]);
-      if (dataType === 'routes' && dataToSave) setRutes(dataToSave as Ruta[]);
 
     } catch (e) {
       setError(e instanceof Error ? e.message : `An unknown error occurred while saving ${dataType}`)
