@@ -1,19 +1,36 @@
-'use client'
+"use client"
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock, Moon, Sun } from 'lucide-react'
+import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock, Moon, Sun, Loader2 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import horaris from './data/horaris.json'
 import rutes from './data/rutes.json'
 
 const daysOfWeek = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'] as const
 type DayOfWeek = typeof daysOfWeek[number]
 
+type BusResult = {
+  ruta_id: number;
+  hora_salida: string;
+  dia_semana: DayOfWeek;
+}
+
+type SpecialKeys =
+  | 'laborables_excepte_agost_i_festius_bcn'
+  | 'laborables_agost'
+  | 'dissabtes_feiners'
+  | 'diumenges_i_festius_excepte_bcn'
+  | 'festius_locals_bcn'
+
 type Horari = {
   ruta_id: number;
-  horarios: { [key in DayOfWeek]: string[] };
+  estacion?: string;
+  horarios?: { [key in DayOfWeek]: string[] };
+  especial?: { [key in SpecialKeys]?: string[] };
+  arribades?: { [key in SpecialKeys]?: string[] };
 }
 
 type Ruta = {
@@ -24,12 +41,6 @@ type Ruta = {
   longitud_origen: number;
 }
 
-type BusResult = {
-  ruta_id: number;
-  hora_salida: string;
-  dia_semana: DayOfWeek;
-}
-
 export default function BusScheduleApp() {
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
@@ -37,21 +48,21 @@ export default function BusScheduleApp() {
   const [schedule, setSchedule] = useState<BusResult[]>([])
   const [showFullSchedule, setShowFullSchedule] = useState(false)
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
+  const [fullArrivals, setFullArrivals] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(true)
+  const [festiuBcn, setFestiuBcn] = useState(false)
 
   useEffect(() => {
-    // Comprobar la preferencia del sistema
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    setDarkMode(prefersDark)
-
-    // Escuchar cambios en la preferencia del sistema
+    // Preferència del sistema
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    setDarkMode(mediaQuery.matches)
     const handleChange = (e: MediaQueryListEvent) => setDarkMode(e.matches)
-    mediaQuery.addListener(handleChange)
-
-    return () => mediaQuery.removeListener(handleChange)
+    mediaQuery.addEventListener ? mediaQuery.addEventListener('change', handleChange) : mediaQuery.addListener(handleChange)
+    return () => {
+      mediaQuery.removeEventListener ? mediaQuery.removeEventListener('change', handleChange) : mediaQuery.removeListener(handleChange)
+    }
   }, [])
 
   const availableOrigins = useMemo(() => Array.from(new Set(rutes.map((ruta: Ruta) => ruta.origen))), [])
@@ -66,7 +77,7 @@ export default function BusScheduleApp() {
     const tempDestination = destination;
     setOrigin(tempDestination);
     setDestination(tempOrigin);
-    // Forzar la actualización de los destinos disponibles
+    // Forçar l'actualització dels destins disponibles
     setTimeout(() => {
       setDestination(tempOrigin);
     }, 0);
@@ -88,37 +99,77 @@ export default function BusScheduleApp() {
     setDestination('')
     setSchedule([])
     setFullSchedule([])
+    setFullArrivals([])
     setNoMoreBusesMessage('')
     setShowFullSchedule(false)
   }, [origin])
+
+  // Force update when festiuBcn changes to refresh schedules
+  useEffect(() => {
+    if (showFullSchedule) {
+      handleShowFullSchedule()
+    }
+  }, [festiuBcn])
+
+  // Helper per obtenir la categoria activa segons dia/mes/switch
+  const getActiveSpecialKey = (day: DayOfWeek, date: Date): SpecialKeys | null => {
+    if (festiuBcn) return 'festius_locals_bcn'
+    if (day === 'Dissabte') return 'dissabtes_feiners'
+    if (day === 'Diumenge') return 'diumenges_i_festius_excepte_bcn'
+    const month = date.getMonth() + 1 // 1..12
+    if (month === 8) return 'laborables_agost'
+    return 'laborables_excepte_agost_i_festius_bcn'
+  }
+
+  const getActiveLabel = (key: SpecialKeys): string => {
+    switch (key) {
+      case 'laborables_excepte_agost_i_festius_bcn': return 'Feiners (excepte agost i festius BCN)'
+      case 'laborables_agost': return 'Feiners (agost)'
+      case 'dissabtes_feiners': return 'Dissabtes feiners'
+      case 'diumenges_i_festius_excepte_bcn': return 'Diumenges i festius'
+      case 'festius_locals_bcn': return 'Festius locals de Barcelona'
+    }
+  }
+
+  const collectTimesForDay = (h: Horari, day: DayOfWeek, date: Date): string[] => {
+    const specialKey = getActiveSpecialKey(day, date)
+    if (h.especial && specialKey && h.especial[specialKey] && h.especial[specialKey]!.length) {
+      return h.especial[specialKey] as string[]
+    }
+    // Fallback a esquema antic per dia
+    return (h.horarios?.[day] ?? []) as string[]
+  }
+
+  const collectArrivalsForDay = (h: Horari, day: DayOfWeek, date: Date): string[] => {
+    const specialKey = getActiveSpecialKey(day, date)
+    if (h.arribades && specialKey && h.arribades[specialKey] && h.arribades[specialKey]!.length) {
+      return h.arribades[specialKey] as string[]
+    }
+    return []
+  }
 
   const handleSearch = () => {
     const currentDate = new Date()
     const currentHour = currentDate.getHours()
     const currentMinute = currentDate.getMinutes()
     const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
-  
+
     const rutaIds = getRutaIds()
     if (rutaIds.length === 0) {
-      setNoMoreBusesMessage("No se ha encontrado la ruta")
+      setNoMoreBusesMessage("No s'ha trobat cap ruta")
       setSchedule([])
       return
     }
-  
+
     const results: BusResult[] = []
-  
-    horaris.forEach((horari: Horari) => {
+
+    ;(horaris as unknown as Horari[]).forEach((horari) => {
       if (rutaIds.includes(horari.ruta_id)) {
-        const horariosForDay = horari.horarios[today] || []
-        
+        const horariosForDay = collectTimesForDay(horari, today, currentDate)
         horariosForDay.forEach(hora_salida => {
           const [hours, minutes] = hora_salida.split(':').map(Number)
           if (hours > currentHour || (hours === currentHour && minutes > currentMinute)) {
-            results.push({
-              ruta_id: horari.ruta_id,
-              hora_salida: hora_salida,
-              dia_semana: today
-            })
+            results.push({ ruta_id: horari.ruta_id, hora_salida, dia_semana: today })
           }
         })
       }
@@ -133,10 +184,10 @@ export default function BusScheduleApp() {
     const nextThreeBuses = results.slice(0, 3)
   
     if (nextThreeBuses.length === 0) {
-      setNoMoreBusesMessage("No queden més autobusos disponibles per avui")
+      setNoMoreBusesMessage('No queden més autobusos disponibles per avui')
       setSchedule([])
     } else if (nextThreeBuses.length < 3) {
-      setNoMoreBusesMessage("No quedan més autobusos disponibles")
+      setNoMoreBusesMessage('No queden més autobusos disponibles')
       setSchedule(nextThreeBuses)
     } else {
       setNoMoreBusesMessage('')
@@ -150,19 +201,33 @@ export default function BusScheduleApp() {
     const rutaIds = getRutaIds()
     if (rutaIds.length === 0) {
       setFullSchedule([])
+      setFullArrivals([])
       return
     }
-  
-    const allHorarios = horaris
-      .filter((horari: Horari) => rutaIds.includes(horari.ruta_id))
-      .flatMap((horari: Horari) => horari.horarios[selectedDay] || [])
+
+    const refDate = new Date()
+    const dayForView = selectedDay
+
+    const allHorarios = (horaris as unknown as Horari[])
+      .filter((h) => rutaIds.includes(h.ruta_id))
+      .flatMap((h) => collectTimesForDay(h, dayForView, refDate))
       .sort((a, b) => {
         const [aHours, aMinutes] = a.split(':').map(Number)
         const [bHours, bMinutes] = b.split(':').map(Number)
         return aHours * 60 + aMinutes - (bHours * 60 + bMinutes)
       })
-  
+
+    const allArrivals = (horaris as unknown as Horari[])
+      .filter((h) => rutaIds.includes(h.ruta_id))
+      .flatMap((h) => collectArrivalsForDay(h, dayForView, refDate))
+      .sort((a, b) => {
+        const [aHours, aMinutes] = a.split(':').map(Number)
+        const [bHours, bMinutes] = b.split(':').map(Number)
+        return aHours * 60 + aMinutes - (bHours * 60 + bMinutes)
+      })
+
     setFullSchedule(allHorarios)
+    setFullArrivals(allArrivals)
     setShowFullSchedule(!showFullSchedule)
   }
 
@@ -191,171 +256,281 @@ export default function BusScheduleApp() {
     }
   }
 
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-  }
+  const toggleDarkMode = () => setDarkMode(!darkMode)
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
+    if (darkMode) document.documentElement.classList.add('dark')
+    else document.documentElement.classList.remove('dark')
   }, [darkMode])
 
+  const canSearch = origin && destination
+
+  // Informació d'avui per orientar l'usuari
+  const todayInfo = useMemo(() => {
+    const now = new Date()
+    const today = daysOfWeek[now.getDay()] as DayOfWeek
+    const key = getActiveSpecialKey(today, now)
+    const category = key ? getActiveLabel(key) : today
+    const dateStr = now.toLocaleDateString('ca-ES', { day: '2-digit', month: 'long' })
+    return { today, category, dateStr }
+  }, [festiuBcn])
+
   return (
-    <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} p-4`}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background via-background to-background">
+      {/* Fondo decorativo sutil */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]">
+        <div className="absolute inset-0 bg-[radial-gradient(20rem_20rem_at_10%_10%,hsl(var(--primary)/0.08),transparent),radial-gradient(24rem_24rem_at_90%_20%,hsl(var(--chart-2)/0.08),transparent)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:28px_28px]" />
+      </div>
+
+      <motion.main
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className={`w-full max-w-lg p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md`}
+        transition={{ duration: 0.4 }}
+        className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12"
       >
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center">
-            <Bus className={`w-12 h-12 ${darkMode ? 'text-blue-400' : 'text-blue-600'} mr-4`} />
-            <h1 className={`text-3xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Busos del Penedès</h1>
+        {/* Encabezado */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <Bus className="h-6 w-6" />
+            </span>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Busos del Penedès</h1>
+              <p className="text-sm text-muted-foreground">Consulta horaris i planifica els teus trajectes.</p>
+            </div>
           </div>
-          <Button onClick={toggleDarkMode} variant="ghost" size="icon" className={darkMode ? 'text-yellow-400' : 'text-gray-600'}>
-            {darkMode ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+          <Button onClick={toggleDarkMode} variant="ghost" size="icon" aria-label="Canviar mode de color">
+            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
         </div>
 
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <Select onValueChange={setOrigin} value={origin}>
-              <SelectTrigger className={`w-full sm:w-40 border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
-                <SelectValue placeholder="Origen" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableOrigins.map((origen) => (
-                  <SelectItem key={origen} value={origen}>
-                    {origen}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Tarjeta principal */}
+        <section className="rounded-2xl border bg-card/80 p-5 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/70 sm:p-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+            {/* Origen */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="origen">Origen</label>
+              <Select onValueChange={setOrigin} value={origin}>
+                <SelectTrigger id="origen" className="h-11 w-full">
+                  <SelectValue placeholder="Selecciona origen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableOrigins.map((origen) => (
+                    <SelectItem key={origen} value={origen}>
+                      {origen}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSwap}
-              className={`p-3 ${darkMode ? 'bg-blue-900' : 'bg-blue-100'} rounded-full transition-colors duration-200 ${darkMode ? 'hover:bg-blue-800' : 'hover:bg-blue-200'}`}
-              aria-label="Intercanviar origen i destinació"
-            >
-              <ArrowLeftRight className={`w-6 h-6 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-            </motion.button>
+            {/* Botón de intercambio */}
+            <div className="flex justify-center sm:self-center">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleSwap}
+                className="mt-1 grid h-11 w-11 place-items-center rounded-full border bg-secondary text-primary shadow-sm transition-colors hover:bg-secondary/80"
+                aria-label="Intercanviar origen i destinació"
+              >
+                <ArrowLeftRight className="h-5 w-5" />
+              </motion.button>
+            </div>
 
-            <Select onValueChange={setDestination} value={destination} disabled={!origin}>
-              <SelectTrigger className={`w-full sm:w-40 border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
-                <SelectValue placeholder="Destinació" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableDestinations.map((destino) => (
-                  <SelectItem key={destino} value={destino}>
-                    {destino}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Destino */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="desti">Destinació</label>
+              <Select onValueChange={setDestination} value={destination} disabled={!origin}>
+                <SelectTrigger id="desti" className="h-11 w-full">
+                  <SelectValue placeholder={origin ? 'Selecciona destinació' : 'Primer escull origen'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDestinations.map((destino) => (
+                    <SelectItem key={destino} value={destino}>
+                      {destino}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button onClick={handleSearch} className={`w-full ${darkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'} text-white transition-colors duration-200 text-lg py-6`}>
-              <Search className="w-5 h-5 mr-2" />
-              Troba els propers 3 autobusos
-            </Button>
-          </motion.div>
+          {/* Día y acciones */}
+          <div className="mt-4 space-y-3">
+            {/* Fila 1: Selector de día */}
+            <div>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground" htmlFor="dia">Dia</label>
+              <Select onValueChange={(value) => setSelectedDay(value as DayOfWeek)} value={selectedDay}>
+                <SelectTrigger id="dia" className="h-11 w-full">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Selecciona un dia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {daysOfWeek.map((day) => (
+                    <SelectItem key={day} value={day}>
+                      {day}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <Switch id="festiu-bcn" checked={festiuBcn} onCheckedChange={setFestiuBcn} />
+                <label htmlFor="festiu-bcn">Festius locals BCN</label>
+              </div>
 
-          <Select onValueChange={(value) => setSelectedDay(value as DayOfWeek)} value={selectedDay}>
-            <SelectTrigger className={`w-full border-gray-300 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-900'} focus:ring-blue-500 focus:border-blue-500`}>
-              <Calendar className={`w-5 h-5 mr-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <SelectValue placeholder="Selecciona un dia" />
-            </SelectTrigger>
-            <SelectContent>
-              {daysOfWeek.map((day) => (
-                <SelectItem key={day} value={day}>
-                  {day}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              {/* Indicador d'avui i categoria activa */}
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                <span className="inline-flex items-center rounded-md border bg-muted/30 px-2.5 py-1">
+                  <Calendar className="mr-2 h-4 w-4" /> Avui: {todayInfo.today} · {todayInfo.dateStr}
+                </span>
+                <span className="inline-flex items-center rounded-md border bg-muted/30 px-2.5 py-1">
+                  <Clock className="mr-2 h-4 w-4" /> Categoria: {todayInfo.category}
+                </span>
+                <span className="inline-flex items-center rounded-md border bg-muted/30 px-2.5 py-1">
+                  <Sun className="mr-2 h-4 w-4" /> Festiu BCN: {festiuBcn ? 'Sí' : 'No'}
+                </span>
+              </div>
+            </div>
 
+            {/* Fila 2: Botones de acciones */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Button
+                onClick={handleShowFullSchedule}
+                variant="outline"
+                className="h-11 w-full"
+              >
+                {showFullSchedule ? 'Amaga horaris' : 'Mostra horaris'}
+              </Button>
+
+              <Button
+                onClick={detectLocation}
+                className="h-11 w-full"
+                variant="secondary"
+                disabled={loading}
+              >
+                <MapPin className="mr-2 h-4 w-4" />
+                {loading ? (
+                  <span className="inline-flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Detectant…</span>
+                ) : (
+                  'Detectar ubicació'
+                )}
+              </Button>
+
+              <Button
+                onClick={handleSearch}
+                className="h-11 w-full"
+                disabled={!canSearch}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Troba els propers 3 autobusos
+              </Button>
+            </div>
+          </div>
+
+          {/* Resultados próximos */}
           <AnimatePresence>
             {schedule.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
                 className="mt-6"
               >
-                <h2 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Propers Autobusos</h2>
-                <div className={`${darkMode ? 'bg-gray-700' : 'bg-blue-50'} p-4 rounded-lg ${darkMode ? 'border-gray-600' : 'border-blue-200'} border`}>
+                <h2 className="mb-3 text-lg font-semibold">Propers autobusos</h2>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {schedule.map((bus, index) => (
-                    <motion.p
-                      key={index}
-                      initial={{ opacity: 0, y: -10 }}
+                    <motion.div
+                      key={`${bus.hora_salida}-${index}`}
+                      initial={{ opacity: 0, y: -6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} flex items-center mb-3 text-lg`}
+                      transition={{ delay: index * 0.06 }}
+                      className="flex items-center justify-between rounded-lg border bg-muted/30 p-3 text-sm"
                     >
-                      <Clock className={`w-5 h-5 mr-3 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                      {bus.hora_salida} - {bus.dia_semana}
-                    </motion.p>
+                      <span className="inline-flex items-center font-medium"><Clock className="mr-2 h-4 w-4 text-primary" />{bus.hora_salida}</span>
+                      <span className="text-muted-foreground">{bus.dia_semana}</span>
+                    </motion.div>
                   ))}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
+          {/* Mensaje informativo */}
           {noMoreBusesMessage && (
-            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mt-4 text-center`}>{noMoreBusesMessage}</p>
+            <p role="status" aria-live="polite" className="mt-4 text-center text-sm text-muted-foreground">{noMoreBusesMessage}</p>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-between mt-6 space-y-4 sm:space-y-0 sm:space-x-4">
-            <Button onClick={handleShowFullSchedule} className={`w-full sm:w-auto ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors duration-200 py-6`}>
-              {showFullSchedule ? 'Amaga Horaris' : 'Mostra Horaris'}
-            </Button>
-            <Button onClick={detectLocation} className={`w-full sm:w-auto ${darkMode ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'} text-white transition-colors duration-200 py-6`} disabled={loading}>
-              <MapPin className="w-5 h-5 mr-2" />
-              {loading ? 'Detectant...' : 'Detectar Ubicació'}
-            </Button>
-          </div>
-
+          {/* Horario completo */}
           <AnimatePresence>
             {showFullSchedule && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.25 }}
                 className="mt-6"
               >
-                <h2 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Horari Complet</h2>
-                <div className={`${darkMode ? 'bg-gray-700' : 'bg-blue-50'} p-4 rounded-lg ${darkMode ? 'border-gray-600' : 'border-blue-200'} border max-h-60 overflow-y-auto`}>
+                <h2 className="mb-3 text-lg font-semibold">
+                  {(() => {
+                    const key = getActiveSpecialKey(selectedDay, new Date())
+                    return key ? `Horari complet (${getActiveLabel(key)})` : `Horari complet (${selectedDay})`
+                  })()}
+                </h2>
+                {/* Sortides */}
+                <div className="mb-3 text-sm font-medium text-muted-foreground">Sortides</div>
+                <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
                   {fullSchedule.length > 0 ? (
-                    fullSchedule.map((time, index) => (
-                      <motion.p
-                        key={index}
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.02 }}
-                        className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} flex items-center mb-3 text-lg`}
-                      >
-                        <Clock className={`w-5 h-5 mr-3 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                        {time} - {selectedDay}
-                      </motion.p>
-                    ))
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {fullSchedule.map((time, index) => (
+                        <motion.span
+                          key={`${time}-${index}`}
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.02 }}
+                          className="inline-flex items-center justify-center rounded-md bg-secondary px-3 py-2 text-sm"
+                        >
+                          <Clock className="mr-2 h-4 w-4 text-primary" /> {time}
+                        </motion.span>
+                      ))}
+                    </div>
                   ) : (
-                    <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No hi ha horaris complets disponibles</p>
+                    <p className="text-sm text-muted-foreground">No hi ha horaris disponibles</p>
                   )}
                 </div>
+
+                {/* Arribades de referència */}
+                {fullArrivals.length > 0 && (
+                  <div className="mt-6">
+                    <div className="mb-3 text-sm font-medium text-muted-foreground">
+                      Arribades (referència){destination ? ` · a ${destination}` : ''}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {fullArrivals.map((time, index) => (
+                          <motion.span
+                            key={`arr-${time}-${index}`}
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.02 }}
+                            className="inline-flex items-center justify-center rounded-md bg-secondary px-3 py-2 text-sm"
+                          >
+                            <Clock className="mr-2 h-4 w-4 text-primary" /> {time}
+                          </motion.span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      </motion.div>
+        </section>
+
+        {/* Pie de página sutil */}
+        <p className="mt-6 text-center text-xs text-muted-foreground">Dades locals. Sense connexió amb servidor.</p>
+      </motion.main>
     </div>
   )
 }
