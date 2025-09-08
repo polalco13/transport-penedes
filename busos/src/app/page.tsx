@@ -84,11 +84,11 @@ export default function BusScheduleApp() {
     }, 0);
   }, [origin, destination]);
 
-  const getRutaIds = () => {
+  const getRutaIds = useCallback(() => {
     return rutes
       .filter((ruta: Ruta) => ruta.origen === origin && ruta.destino === destination)
       .map(ruta => ruta.id)
-  }
+  }, [origin, destination])
 
   useEffect(() => {
     const currentDate = new Date()
@@ -105,22 +105,15 @@ export default function BusScheduleApp() {
     setShowFullSchedule(false)
   }, [origin])
 
-  // Force update when festiuBcn changes to refresh schedules
-  useEffect(() => {
-    if (showFullSchedule) {
-      handleShowFullSchedule()
-    }
-  }, [festiuBcn])
-
   // Helper per obtenir la categoria activa segons dia/mes/switch
-  const getActiveSpecialKey = (day: DayOfWeek, date: Date): SpecialKeys | null => {
+  const getActiveSpecialKey = useCallback((day: DayOfWeek, date: Date): SpecialKeys | null => {
     if (festiuBcn) return 'festius_locals_bcn'
     if (day === 'Dissabte') return 'dissabtes_feiners'
     if (day === 'Diumenge') return 'diumenges_i_festius_excepte_bcn'
     const month = date.getMonth() + 1 // 1..12
     if (month === 8) return 'laborables_agost'
     return 'laborables_excepte_agost_i_festius_bcn'
-  }
+  }, [festiuBcn])
 
   const getActiveLabel = (key: SpecialKeys): string => {
     switch (key) {
@@ -132,22 +125,22 @@ export default function BusScheduleApp() {
     }
   }
 
-  const collectTimesForDay = (h: Horari, day: DayOfWeek, date: Date): string[] => {
+  const collectTimesForDay = useCallback((h: Horari, day: DayOfWeek, date: Date): string[] => {
     const specialKey = getActiveSpecialKey(day, date)
     if (h.especial && specialKey && h.especial[specialKey] && h.especial[specialKey]!.length) {
       return h.especial[specialKey] as string[]
     }
     // Fallback a esquema antic per dia
     return (h.horarios?.[day] ?? []) as string[]
-  }
+  }, [getActiveSpecialKey])
 
-  const collectArrivalsForDay = (h: Horari, day: DayOfWeek, date: Date): string[] => {
+  const collectArrivalsForDay = useCallback((h: Horari, day: DayOfWeek, date: Date): string[] => {
     const specialKey = getActiveSpecialKey(day, date)
     if (h.arribades && specialKey && h.arribades[specialKey] && h.arribades[specialKey]!.length) {
       return h.arribades[specialKey] as string[]
     }
     return []
-  }
+  }, [getActiveSpecialKey])
 
   const handleSearch = () => {
     const currentDate = new Date()
@@ -198,7 +191,7 @@ export default function BusScheduleApp() {
     setShowFullSchedule(false)
   }
 
-  const handleShowFullSchedule = () => {
+  const handleShowFullSchedule = useCallback(() => {
     const rutaIds = getRutaIds()
     if (rutaIds.length === 0) {
       setFullSchedule([])
@@ -230,7 +223,14 @@ export default function BusScheduleApp() {
     setFullSchedule(allHorarios)
     setFullArrivals(allArrivals)
     setShowFullSchedule(!showFullSchedule)
-  }
+  }, [selectedDay, showFullSchedule, getRutaIds, collectTimesForDay, collectArrivalsForDay])
+
+  // Force update when festiuBcn changes to refresh schedules
+  useEffect(() => {
+    if (showFullSchedule) {
+      handleShowFullSchedule()
+    }
+  }, [festiuBcn, showFullSchedule, handleShowFullSchedule])
 
   const detectLocation = () => {
     setLoading(true)
@@ -274,7 +274,7 @@ export default function BusScheduleApp() {
     const category = key ? getActiveLabel(key) : today
     const dateStr = now.toLocaleDateString('ca-ES', { day: '2-digit', month: 'long' })
     return { today, category, dateStr }
-  }, [festiuBcn])
+  }, [festiuBcn, getActiveSpecialKey])
 
   if (maintenance) {
     return (
@@ -285,7 +285,7 @@ export default function BusScheduleApp() {
             Actualment estem realitzant tasques de manteniment. Si us plau, torna més tard.
           </p>
           <Button onClick={() => setMaintenance(false)} className="w-full">
-            Tornar a l'aplicació
+            Tornar a l&apos;aplicació
           </Button>
         </div>
       </div>
@@ -548,16 +548,6 @@ export default function BusScheduleApp() {
         {/* Pie de página sutil */}
         <p className="mt-6 text-center text-xs text-muted-foreground">Dades locals. Sense connexió amb servidor.</p>
       </motion.main>
-
-      {/* Pantalla de manteniment */}
-      {maintenance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="rounded-lg bg-white p-8 text-center shadow-lg dark:bg-gray-800">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">En manteniment</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">El servei està temporalment fora de servei.</p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
