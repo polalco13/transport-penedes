@@ -53,6 +53,7 @@ export default function BusScheduleApp() {
   const [loading, setLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(true)
   const [festiuBcn, setFestiuBcn] = useState(false)
+  const [maintenance, setMaintenance] = useState(true)
 
   useEffect(() => {
     // Preferència del sistema
@@ -274,6 +275,22 @@ export default function BusScheduleApp() {
     const dateStr = now.toLocaleDateString('ca-ES', { day: '2-digit', month: 'long' })
     return { today, category, dateStr }
   }, [festiuBcn])
+
+  if (maintenance) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
+        <div className="max-w-md rounded-xl border bg-card/80 p-6 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/70">
+          <h2 className="mb-4 text-lg font-semibold">Manteniment en curs</h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Actualment estem realitzant tasques de manteniment. Si us plau, torna més tard.
+          </p>
+          <Button onClick={() => setMaintenance(false)} className="w-full">
+            Tornar a l'aplicació
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background via-background to-background">
@@ -531,6 +548,16 @@ export default function BusScheduleApp() {
         {/* Pie de página sutil */}
         <p className="mt-6 text-center text-xs text-muted-foreground">Dades locals. Sense connexió amb servidor.</p>
       </motion.main>
+
+      {/* Pantalla de manteniment */}
+      {maintenance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="rounded-lg bg-white p-8 text-center shadow-lg dark:bg-gray-800">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">En manteniment</h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">El servei està temporalment fora de servei.</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
