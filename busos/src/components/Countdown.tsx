@@ -74,7 +74,7 @@ export function Countdown({ targetTime, onStatusChange }: CountdownProps) {
         const interval = setInterval(update, 10000) // Update every 10 seconds
 
         return () => clearInterval(interval)
-    }, [targetTime])
+    }, [targetTime, onStatusChange])
 
     return (
         <div className={`flex items-center gap-2 ${statusColor}`}>
