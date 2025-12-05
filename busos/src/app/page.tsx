@@ -4,33 +4,57 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock, Moon, Sun, Loader2 } from 'lucide-react'
+import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Clock, Moon, Sun, Loader2, Info } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
-import horaris from './data/horaris.json'
+import { Countdown } from '@/components/Countdown'
+import horarisData from './data/horaris.json'
 import rutes from './data/rutes.json'
+
+// --- Types for new data structure ---
+
+type Salida = {
+  [key: string]: string | null;
+}
+
+type Calendario = {
+  descripcion: string;
+  salidas: Salida[];
+}
+
+type Calendarios = {
+  laborables_invierno?: Calendario;
+  laborables_agosto?: Calendario;
+  sabados_laborables?: Calendario;
+  domingos_y_festivos?: Calendario;
+}
+
+type RutaDef = {
+  origen: string;
+  destino: string;
+  paradas_orden: string[];
+  calendarios: Calendarios;
+}
+
+type HorariosAutobus = {
+  [key: string]: RutaDef;
+}
+
+type FullData = {
+  horarios_autobus: HorariosAutobus;
+}
+
+// Cast imported JSON to the correct type
+const fullData = horarisData as FullData;
+
+// --- App Logic ---
 
 const daysOfWeek = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'] as const
 type DayOfWeek = typeof daysOfWeek[number]
 
 type BusResult = {
-  ruta_id: number;
   hora_salida: string;
   dia_semana: DayOfWeek;
-}
-
-type SpecialKeys =
-  | 'laborables_excepte_agost_i_festius_bcn'
-  | 'laborables_agost'
-  | 'dissabtes_feiners'
-  | 'diumenges_i_festius_excepte_bcn'
-  | 'festius_locals_bcn'
-
-type Horari = {
-  ruta_id: number;
-  estacion?: string;
-  horarios?: { [key in DayOfWeek]: string[] };
-  especial?: { [key in SpecialKeys]?: string[] };
-  arribades?: { [key in SpecialKeys]?: string[] };
+  ruta_key: string;
 }
 
 type Ruta = {
@@ -41,6 +65,16 @@ type Ruta = {
   longitud_origen: number;
 }
 
+const stopKeyMap: { [key: string]: string } = {
+  "Estació d'autobusos Sants": "sants",
+  "Estació d'autobusos de Sants": "sants",
+  "Av. Diagonal (Mª Cristina)": "ma_cristina",
+  "Av. Diagonal (Palau Reial)": "palau_reial",
+  "Av. Diagonal (Zona Universitària)": "zona_uni",
+  "Estació d'autobusos Vilafranca": "vilafranca",
+  "Estació d'autobusos de Vilafranca": "vilafranca"
+};
+
 export default function BusScheduleApp() {
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
@@ -48,26 +82,23 @@ export default function BusScheduleApp() {
   const [schedule, setSchedule] = useState<BusResult[]>([])
   const [showFullSchedule, setShowFullSchedule] = useState(false)
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
-  const [fullArrivals, setFullArrivals] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(true)
   const [festiuBcn, setFestiuBcn] = useState(false)
-  const [maintenance, setMaintenance] = useState(true)
+  const [busStatuses, setBusStatuses] = useState<Record<string, 'green' | 'orange' | 'red'>>({})
 
   useEffect(() => {
-    // Preferència del sistema
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    setDarkMode(mediaQuery.matches)
-    const handleChange = (e: MediaQueryListEvent) => setDarkMode(e.matches)
-    mediaQuery.addEventListener ? mediaQuery.addEventListener('change', handleChange) : mediaQuery.addListener(handleChange)
-    return () => {
-      mediaQuery.removeEventListener ? mediaQuery.removeEventListener('change', handleChange) : mediaQuery.removeListener(handleChange)
+    // Check system preference initially
+    if (typeof window !== 'undefined') {
+      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setDarkMode(isDark);
     }
   }, [])
 
+  // Derived from rutes.json which we updated to contain valid pairs
   const availableOrigins = useMemo(() => Array.from(new Set(rutes.map((ruta: Ruta) => ruta.origen))), [])
-  
+
   const availableDestinations = useMemo(() => {
     if (!origin) return []
     return Array.from(new Set(rutes.filter((ruta: Ruta) => ruta.origen === origin).map(ruta => ruta.destino)))
@@ -78,17 +109,7 @@ export default function BusScheduleApp() {
     const tempDestination = destination;
     setOrigin(tempDestination);
     setDestination(tempOrigin);
-    // Forçar l'actualització dels destins disponibles
-    setTimeout(() => {
-      setDestination(tempOrigin);
-    }, 0);
   }, [origin, destination]);
-
-  const getRutaIds = useCallback(() => {
-    return rutes
-      .filter((ruta: Ruta) => ruta.origen === origin && ruta.destino === destination)
-      .map(ruta => ruta.id)
-  }, [origin, destination])
 
   useEffect(() => {
     const currentDate = new Date()
@@ -100,137 +121,148 @@ export default function BusScheduleApp() {
     setDestination('')
     setSchedule([])
     setFullSchedule([])
-    setFullArrivals([])
     setNoMoreBusesMessage('')
     setShowFullSchedule(false)
   }, [origin])
 
-  // Helper per obtenir la categoria activa segons dia/mes/switch
-  const getActiveSpecialKey = useCallback((day: DayOfWeek, date: Date): SpecialKeys | null => {
-    if (festiuBcn) return 'festius_locals_bcn'
-    if (day === 'Dissabte') return 'dissabtes_feiners'
-    if (day === 'Diumenge') return 'diumenges_i_festius_excepte_bcn'
-    const month = date.getMonth() + 1 // 1..12
-    if (month === 8) return 'laborables_agost'
-    return 'laborables_excepte_agost_i_festius_bcn'
-  }, [festiuBcn])
+  // Helper to get the active calendar key
+  const getActiveCalendarKey = useCallback((day: DayOfWeek, date: Date): keyof Calendarios => {
+    if (day === 'Diumenge') return 'domingos_y_festivos';
+    if (day === 'Dissabte') return 'sabados_laborables';
 
-  const getActiveLabel = (key: SpecialKeys): string => {
+    if (festiuBcn) return 'domingos_y_festivos';
+
+    const month = date.getMonth() + 1; // 1..12
+    if (month === 8) return 'laborables_agosto';
+
+    return 'laborables_invierno';
+  }, [festiuBcn]);
+
+  const getActiveLabel = (key: keyof Calendarios): string => {
     switch (key) {
-      case 'laborables_excepte_agost_i_festius_bcn': return 'Feiners (excepte agost i festius BCN)'
-      case 'laborables_agost': return 'Feiners (agost)'
-      case 'dissabtes_feiners': return 'Dissabtes feiners'
-      case 'diumenges_i_festius_excepte_bcn': return 'Diumenges i festius'
-      case 'festius_locals_bcn': return 'Festius locals de Barcelona'
+      case 'laborables_invierno': return 'Feiners (hivern)';
+      case 'laborables_agosto': return 'Feiners (agost)';
+      case 'sabados_laborables': return 'Dissabtes feiners';
+      case 'domingos_y_festivos': return 'Diumenges i festius';
+      default: return key;
     }
   }
 
-  const collectTimesForDay = useCallback((h: Horari, day: DayOfWeek, date: Date): string[] => {
-    const specialKey = getActiveSpecialKey(day, date)
-    if (h.especial && specialKey && h.especial[specialKey] && h.especial[specialKey]!.length) {
-      return h.especial[specialKey] as string[]
-    }
-    // Fallback a esquema antic per dia
-    return (h.horarios?.[day] ?? []) as string[]
-  }, [getActiveSpecialKey])
+  const findRouteKey = useCallback((origin: string, destination: string): string | null => {
+    for (const [key, ruta] of Object.entries(fullData.horarios_autobus)) {
+      const originIndex = ruta.paradas_orden.indexOf(origin);
+      const destIndex = ruta.paradas_orden.indexOf(destination);
 
-  const collectArrivalsForDay = useCallback((h: Horari, day: DayOfWeek, date: Date): string[] => {
-    const specialKey = getActiveSpecialKey(day, date)
-    if (h.arribades && specialKey && h.arribades[specialKey] && h.arribades[specialKey]!.length) {
-      return h.arribades[specialKey] as string[]
+      if (originIndex !== -1 && destIndex !== -1 && originIndex < destIndex) {
+        return key;
+      }
     }
-    return []
-  }, [getActiveSpecialKey])
+    return null;
+  }, []);
 
   const handleSearch = () => {
     const currentDate = new Date()
     const currentHour = currentDate.getHours()
     const currentMinute = currentDate.getMinutes()
-    const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
 
-    const rutaIds = getRutaIds()
-    if (rutaIds.length === 0) {
-      setNoMoreBusesMessage("No s'ha trobat cap ruta")
-      setSchedule([])
-      return
+    const isToday = selectedDay === daysOfWeek[currentDate.getDay()];
+    const calendarKey = getActiveCalendarKey(selectedDay, currentDate);
+
+    const routeKey = findRouteKey(origin, destination);
+
+    if (!routeKey) {
+      setNoMoreBusesMessage("No s'ha trobat cap ruta per a aquest trajecte");
+      setSchedule([]);
+      return;
     }
 
-    const results: BusResult[] = []
+    const ruta = fullData.horarios_autobus[routeKey];
+    const calendar = ruta.calendarios[calendarKey];
 
-    ;(horaris as unknown as Horari[]).forEach((horari) => {
-      if (rutaIds.includes(horari.ruta_id)) {
-        const horariosForDay = collectTimesForDay(horari, today, currentDate)
-        horariosForDay.forEach(hora_salida => {
-          const [hours, minutes] = hora_salida.split(':').map(Number)
+    if (!calendar) {
+      setNoMoreBusesMessage("No hi ha horaris per a aquest dia");
+      setSchedule([]);
+      return;
+    }
+
+    const originKey = stopKeyMap[origin];
+    if (!originKey) {
+      setNoMoreBusesMessage("Error intern: parada desconeguda");
+      return;
+    }
+
+    const results: BusResult[] = [];
+
+    calendar.salidas.forEach(salida => {
+      const time = salida[originKey];
+      if (time) {
+        if (isToday) {
+          const [hours, minutes] = time.split(':').map(Number);
           if (hours > currentHour || (hours === currentHour && minutes > currentMinute)) {
-            results.push({ ruta_id: horari.ruta_id, hora_salida, dia_semana: today })
+            results.push({ hora_salida: time, dia_semana: selectedDay, ruta_key: routeKey });
           }
-        })
+        } else {
+          results.push({ hora_salida: time, dia_semana: selectedDay, ruta_key: routeKey });
+        }
       }
-    })
-  
+    });
+
     results.sort((a, b) => {
-      const [aHours, aMinutes] = a.hora_salida.split(':').map(Number)
-      const [bHours, bMinutes] = b.hora_salida.split(':').map(Number)
-      return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes)
-    })
-  
-    const nextThreeBuses = results.slice(0, 3)
-  
+      const [aHours, aMinutes] = a.hora_salida.split(':').map(Number);
+      const [bHours, bMinutes] = b.hora_salida.split(':').map(Number);
+      return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes);
+    });
+
+    const nextThreeBuses = results.slice(0, 3);
+
     if (nextThreeBuses.length === 0) {
-      setNoMoreBusesMessage('No queden més autobusos disponibles per avui')
-      setSchedule([])
-    } else if (nextThreeBuses.length < 3) {
-      setNoMoreBusesMessage('No queden més autobusos disponibles')
-      setSchedule(nextThreeBuses)
+      setNoMoreBusesMessage(isToday ? 'No queden més autobusos disponibles per avui' : 'No hi ha autobusos disponibles');
+      setSchedule([]);
     } else {
-      setNoMoreBusesMessage('')
-      setSchedule(nextThreeBuses)
+      setNoMoreBusesMessage('');
+      setSchedule(nextThreeBuses);
     }
-  
-    setShowFullSchedule(false)
+
+    setShowFullSchedule(false);
   }
 
   const handleShowFullSchedule = useCallback(() => {
-    const rutaIds = getRutaIds()
-    if (rutaIds.length === 0) {
-      setFullSchedule([])
-      setFullArrivals([])
-      return
+    const routeKey = findRouteKey(origin, destination);
+    if (!routeKey) {
+      setFullSchedule([]);
+      return;
     }
 
-    const refDate = new Date()
-    const dayForView = selectedDay
+    const refDate = new Date();
+    const calendarKey = getActiveCalendarKey(selectedDay, refDate);
+    const ruta = fullData.horarios_autobus[routeKey];
+    const calendar = ruta.calendarios[calendarKey];
 
-    const allHorarios = (horaris as unknown as Horari[])
-      .filter((h) => rutaIds.includes(h.ruta_id))
-      .flatMap((h) => collectTimesForDay(h, dayForView, refDate))
-      .sort((a, b) => {
-        const [aHours, aMinutes] = a.split(':').map(Number)
-        const [bHours, bMinutes] = b.split(':').map(Number)
-        return aHours * 60 + aMinutes - (bHours * 60 + bMinutes)
-      })
-
-    const allArrivals = (horaris as unknown as Horari[])
-      .filter((h) => rutaIds.includes(h.ruta_id))
-      .flatMap((h) => collectArrivalsForDay(h, dayForView, refDate))
-      .sort((a, b) => {
-        const [aHours, aMinutes] = a.split(':').map(Number)
-        const [bHours, bMinutes] = b.split(':').map(Number)
-        return aHours * 60 + aMinutes - (bHours * 60 + bMinutes)
-      })
-
-    setFullSchedule(allHorarios)
-    setFullArrivals(allArrivals)
-    setShowFullSchedule(!showFullSchedule)
-  }, [selectedDay, showFullSchedule, getRutaIds, collectTimesForDay, collectArrivalsForDay])
-
-  // Force update when festiuBcn changes to refresh schedules
-  useEffect(() => {
-    if (showFullSchedule) {
-      handleShowFullSchedule()
+    if (!calendar) {
+      setFullSchedule([]);
+      setShowFullSchedule(!showFullSchedule);
+      return;
     }
-  }, [festiuBcn, showFullSchedule, handleShowFullSchedule])
+
+    const originKey = stopKeyMap[origin];
+    if (!originKey) {
+      setFullSchedule([]);
+      return;
+    }
+
+    const times = calendar.salidas
+      .map(s => s[originKey])
+      .filter((t): t is string => t !== null && t !== undefined)
+      .sort((a, b) => {
+        const [aHours, aMinutes] = a.split(':').map(Number);
+        const [bHours, bMinutes] = b.split(':').map(Number);
+        return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes);
+      });
+
+    setFullSchedule(times);
+    setShowFullSchedule(!showFullSchedule);
+
+  }, [origin, destination, selectedDay, showFullSchedule, findRouteKey, getActiveCalendarKey]);
 
   const detectLocation = () => {
     setLoading(true)
@@ -266,75 +298,86 @@ export default function BusScheduleApp() {
 
   const canSearch = origin && destination
 
-  // Informació d'avui per orientar l'usuari
   const todayInfo = useMemo(() => {
     const now = new Date()
     const today = daysOfWeek[now.getDay()] as DayOfWeek
-    const key = getActiveSpecialKey(today, now)
-    const category = key ? getActiveLabel(key) : today
+    const key = getActiveCalendarKey(today, now)
+    const category = getActiveLabel(key)
     const dateStr = now.toLocaleDateString('ca-ES', { day: '2-digit', month: 'long' })
     return { today, category, dateStr }
-  }, [festiuBcn, getActiveSpecialKey])
+  }, [getActiveCalendarKey])
 
-  if (maintenance) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
-        <div className="max-w-md rounded-xl border bg-card/80 p-6 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/70">
-          <h2 className="mb-4 text-lg font-semibold">Manteniment en curs</h2>
-          <p className="mb-6 text-sm text-muted-foreground">
-            Actualment estem realitzant tasques de manteniment. Si us plau, torna més tard.
-          </p>
-          <Button onClick={() => setMaintenance(false)} className="w-full">
-            Tornar a l&apos;aplicació
-          </Button>
-        </div>
-      </div>
-    )
+  const getBadgeStyles = (status: 'green' | 'orange' | 'red') => {
+    switch (status) {
+      case 'red':
+        return 'bg-red-500/10 text-red-600 dark:text-red-400'
+      case 'orange':
+        return 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+      default:
+        return 'bg-green-500/10 text-green-600 dark:text-green-400'
+    }
+  }
+
+  const getBadgeText = (status: 'green' | 'orange' | 'red') => {
+    switch (status) {
+      case 'red':
+        return 'Imminent'
+      case 'orange':
+        return 'Aviat'
+      default:
+        return 'En hora'
+    }
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background via-background to-background">
-      {/* Fondo decorativo sutil */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]">
-        <div className="absolute inset-0 bg-[radial-gradient(20rem_20rem_at_10%_10%,hsl(var(--primary)/0.08),transparent),radial-gradient(24rem_24rem_at_90%_20%,hsl(var(--chart-2)/0.08),transparent)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:28px_28px]" />
+    <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground selection:bg-primary/20">
+      {/* Dynamic Background */}
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] rounded-full bg-primary/20 blur-[120px] mix-blend-screen dark:bg-primary/10 dark:mix-blend-normal animate-pulse-slow" />
+        <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-blue-500/20 blur-[120px] mix-blend-screen dark:bg-blue-500/10 dark:mix-blend-normal animate-pulse-slow delay-1000" />
       </div>
 
       <motion.main
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12"
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-8 sm:px-6"
       >
-        {/* Encabezado */}
-        <div className="mb-6 flex items-center justify-between">
+        {/* Header */}
+        <header className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-              <Bus className="h-6 w-6" />
-            </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary backdrop-blur-sm">
+              <Bus className="h-5 w-5" />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Busos del Penedès</h1>
-              <p className="text-sm text-muted-foreground">Consulta horaris i planifica els teus trajectes.</p>
+              <h1 className="text-xl font-bold tracking-tight">Busos Penedès</h1>
+              <p className="text-xs text-muted-foreground">Horaris actualitzats</p>
             </div>
           </div>
-          <Button onClick={toggleDarkMode} variant="ghost" size="icon" aria-label="Canviar mode de color">
+          <Button
+            onClick={toggleDarkMode}
+            variant="ghost"
+            size="icon"
+            className="rounded-full hover:bg-primary/5"
+          >
             {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
-        </div>
+        </header>
 
-        {/* Tarjeta principal */}
-        <section className="rounded-2xl border bg-card/80 p-5 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/70 sm:p-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-            {/* Origen */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="origen">Origen</label>
+        {/* Main Card */}
+        <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/60 p-6 shadow-2xl backdrop-blur-xl dark:border-white/5 dark:bg-black/40">
+
+          {/* Route Selection */}
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground ml-1">Origen</label>
               <Select onValueChange={setOrigin} value={origin}>
-                <SelectTrigger id="origen" className="h-11 w-full">
+                <SelectTrigger className="h-12 rounded-2xl border-0 bg-background/50 px-4 shadow-sm backdrop-blur-sm transition-all hover:bg-background/80 focus:ring-2 focus:ring-primary/20">
                   <SelectValue placeholder="Selecciona origen" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl border-white/20 backdrop-blur-xl">
                   {availableOrigins.map((origen) => (
-                    <SelectItem key={origen} value={origen}>
+                    <SelectItem key={origen} value={origen} className="rounded-lg focus:bg-primary/10">
                       {origen}
                     </SelectItem>
                   ))}
@@ -342,29 +385,29 @@ export default function BusScheduleApp() {
               </Select>
             </div>
 
-            {/* Botón de intercambio */}
-            <div className="flex justify-center sm:self-center">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+            <div className="relative flex justify-center py-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border/40"></div>
+              </div>
+              <Button
                 onClick={handleSwap}
-                className="mt-1 grid h-11 w-11 place-items-center rounded-full border bg-secondary text-primary shadow-sm transition-colors hover:bg-secondary/80"
-                aria-label="Intercanviar origen i destinació"
+                variant="outline"
+                size="icon"
+                className="relative h-10 w-10 rounded-full border border-border/40 bg-background shadow-sm transition-transform hover:scale-110 hover:bg-background"
               >
-                <ArrowLeftRight className="h-5 w-5" />
-              </motion.button>
+                <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+              </Button>
             </div>
 
-            {/* Destino */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="desti">Destinació</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground ml-1">Destinació</label>
               <Select onValueChange={setDestination} value={destination} disabled={!origin}>
-                <SelectTrigger id="desti" className="h-11 w-full">
+                <SelectTrigger className="h-12 rounded-2xl border-0 bg-background/50 px-4 shadow-sm backdrop-blur-sm transition-all hover:bg-background/80 focus:ring-2 focus:ring-primary/20">
                   <SelectValue placeholder={origin ? 'Selecciona destinació' : 'Primer escull origen'} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl border-white/20 backdrop-blur-xl">
                   {availableDestinations.map((destino) => (
-                    <SelectItem key={destino} value={destino}>
+                    <SelectItem key={destino} value={destino} className="rounded-lg focus:bg-primary/10">
                       {destino}
                     </SelectItem>
                   ))}
@@ -373,180 +416,156 @@ export default function BusScheduleApp() {
             </div>
           </div>
 
-          {/* Día y acciones */}
-          <div className="mt-4 space-y-3">
-            {/* Fila 1: Selector de día */}
-            <div>
-              <label className="mb-2 block text-xs font-medium text-muted-foreground" htmlFor="dia">Dia</label>
+          {/* Settings & Info */}
+          <div className="mt-6 space-y-4 rounded-2xl bg-primary/5 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Calendar className="h-4 w-4 text-primary" />
+                <span>Dia del viatge</span>
+              </div>
               <Select onValueChange={(value) => setSelectedDay(value as DayOfWeek)} value={selectedDay}>
-                <SelectTrigger id="dia" className="h-11 w-full">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Selecciona un dia" />
+                <SelectTrigger className="h-9 w-[140px] rounded-lg border-0 bg-background/50 shadow-none backdrop-blur-sm">
+                  <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl">
                   {daysOfWeek.map((day) => (
-                    <SelectItem key={day} value={day}>
+                    <SelectItem key={day} value={day} className="rounded-lg">
                       {day}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Switch id="festiu-bcn" checked={festiuBcn} onCheckedChange={setFestiuBcn} />
-                <label htmlFor="festiu-bcn">Festius locals BCN</label>
-              </div>
-
-              {/* Indicador d'avui i categoria activa */}
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                <span className="inline-flex items-center rounded-md border bg-muted/30 px-2.5 py-1">
-                  <Calendar className="mr-2 h-4 w-4" /> Avui: {todayInfo.today} · {todayInfo.dateStr}
-                </span>
-                <span className="inline-flex items-center rounded-md border bg-muted/30 px-2.5 py-1">
-                  <Clock className="mr-2 h-4 w-4" /> Categoria: {todayInfo.category}
-                </span>
-                <span className="inline-flex items-center rounded-md border bg-muted/30 px-2.5 py-1">
-                  <Sun className="mr-2 h-4 w-4" /> Festiu BCN: {festiuBcn ? 'Sí' : 'No'}
-                </span>
-              </div>
             </div>
 
-            {/* Fila 2: Botones de acciones */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Info className="h-4 w-4 text-primary" />
+                <span>Festiu a BCN?</span>
+              </div>
+              <Switch checked={festiuBcn} onCheckedChange={setFestiuBcn} />
+            </div>
+
+            <div className="pt-2 text-xs text-muted-foreground">
+              <p>Avui és <span className="font-medium text-foreground">{todayInfo.today}</span> ({todayInfo.dateStr})</p>
+              <p>Horari aplicat: <span className="font-medium text-foreground">{todayInfo.category}</span></p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-6 grid gap-3">
+            <Button
+              onClick={handleSearch}
+              className="h-12 w-full rounded-2xl bg-primary text-base font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98]"
+              disabled={!canSearch}
+            >
+              <Search className="mr-2 h-5 w-5" />
+              Cercar Busos
+            </Button>
+
+            <div className="grid grid-cols-2 gap-3">
               <Button
                 onClick={handleShowFullSchedule}
-                variant="outline"
-                className="h-11 w-full"
+                variant="secondary"
+                className="h-10 rounded-xl bg-secondary/50 hover:bg-secondary/80"
               >
-                {showFullSchedule ? 'Amaga horaris' : 'Mostra horaris'}
+                {showFullSchedule ? 'Amagar Tot' : 'Veure Tot'}
               </Button>
-
               <Button
                 onClick={detectLocation}
-                className="h-11 w-full"
                 variant="secondary"
+                className="h-10 rounded-xl bg-secondary/50 hover:bg-secondary/80"
                 disabled={loading}
               >
-                <MapPin className="mr-2 h-4 w-4" />
-                {loading ? (
-                  <span className="inline-flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Detectant…</span>
-                ) : (
-                  'Detectar ubicació'
-                )}
-              </Button>
-
-              <Button
-                onClick={handleSearch}
-                className="h-11 w-full"
-                disabled={!canSearch}
-              >
-                <Search className="mr-2 h-4 w-4" />
-                Troba els propers 3 autobusos
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                <span className="ml-2">Ubicació</span>
               </Button>
             </div>
           </div>
 
-          {/* Resultados próximos */}
-          <AnimatePresence>
+        </div>
+
+        {/* Results Section */}
+        <div className="mt-6 space-y-4">
+          <AnimatePresence mode="wait">
             {schedule.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="mt-6"
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-3"
               >
-                <h2 className="mb-3 text-lg font-semibold">Propers autobusos</h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {schedule.map((bus, index) => (
-                    <motion.div
-                      key={`${bus.hora_salida}-${index}`}
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.06 }}
-                      className="flex items-center justify-between rounded-lg border bg-muted/30 p-3 text-sm"
-                    >
-                      <span className="inline-flex items-center font-medium"><Clock className="mr-2 h-4 w-4 text-primary" />{bus.hora_salida}</span>
-                      <span className="text-muted-foreground">{bus.dia_semana}</span>
-                    </motion.div>
-                  ))}
-                </div>
+                <h3 className="px-1 text-sm font-medium text-muted-foreground">Propers busos</h3>
+
+                {schedule.map((bus, index) => (
+                  <motion.div
+                    key={`${bus.hora_salida}-${index}`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/40 px-5 py-4 shadow-sm backdrop-blur-md dark:bg-white/5"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Bus className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-2">
+                          <Countdown 
+                            targetTime={bus.hora_salida} 
+                            onStatusChange={(status) => setBusStatuses(prev => ({ ...prev, [`${bus.hora_salida}-${index}`]: status }))}
+                          />
+                          <span className="text-xs text-muted-foreground">({bus.hora_salida})</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{bus.dia_semana}</p>
+                      </div>
+                    </div>
+                    <div className={`rounded-full px-3 py-1 text-xs font-medium ${getBadgeStyles(busStatuses[`${bus.hora_salida}-${index}`] || 'green')}`}>
+                      {getBadgeText(busStatuses[`${bus.hora_salida}-${index}`] || 'green')}
+                    </div>
+                  </motion.div>
+                ))}
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Mensaje informativo */}
           {noMoreBusesMessage && (
-            <p role="status" aria-live="polite" className="mt-4 text-center text-sm text-muted-foreground">{noMoreBusesMessage}</p>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="rounded-2xl border border-dashed border-muted-foreground/25 bg-muted/30 p-6 text-center"
+            >
+              <p className="text-sm text-muted-foreground">{noMoreBusesMessage}</p>
+            </motion.div>
           )}
 
-          {/* Horario completo */}
           <AnimatePresence>
             {showFullSchedule && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.25 }}
-                className="mt-6"
+                className="overflow-hidden rounded-3xl border border-white/20 bg-white/60 shadow-xl backdrop-blur-xl dark:bg-black/40"
               >
-                <h2 className="mb-3 text-lg font-semibold">
-                  {(() => {
-                    const key = getActiveSpecialKey(selectedDay, new Date())
-                    return key ? `Horari complet (${getActiveLabel(key)})` : `Horari complet (${selectedDay})`
-                  })()}
-                </h2>
-                {/* Sortides */}
-                <div className="mb-3 text-sm font-medium text-muted-foreground">Sortides</div>
-                <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
-                  {fullSchedule.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      {fullSchedule.map((time, index) => (
-                        <motion.span
-                          key={`${time}-${index}`}
-                          initial={{ opacity: 0, y: -6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.02 }}
-                          className="inline-flex items-center justify-center rounded-md bg-secondary px-3 py-2 text-sm"
-                        >
-                          <Clock className="mr-2 h-4 w-4 text-primary" /> {time}
-                        </motion.span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No hi ha horaris disponibles</p>
-                  )}
-                </div>
-
-                {/* Arribades de referència */}
-                {fullArrivals.length > 0 && (
-                  <div className="mt-6">
-                    <div className="mb-3 text-sm font-medium text-muted-foreground">
-                      Arribades (referència){destination ? ` · a ${destination}` : ''}
-                    </div>
-                    <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {fullArrivals.map((time, index) => (
-                          <motion.span
-                            key={`arr-${time}-${index}`}
-                            initial={{ opacity: 0, y: -6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.02 }}
-                            className="inline-flex items-center justify-center rounded-md bg-secondary px-3 py-2 text-sm"
-                          >
-                            <Clock className="mr-2 h-4 w-4 text-primary" /> {time}
-                          </motion.span>
-                        ))}
+                <div className="p-6">
+                  <h3 className="mb-4 font-semibold">Horari Complet</h3>
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                    {fullSchedule.map((time, i) => (
+                      <div key={i} className="rounded-lg bg-background/50 py-2 text-center text-sm font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors cursor-default">
+                        {time}
                       </div>
-                    </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </section>
+        </div>
 
-        {/* Pie de página sutil */}
-        <p className="mt-6 text-center text-xs text-muted-foreground">Dades locals. Sense connexió amb servidor.</p>
+        <footer className="mt-12 text-center">
+          <p className="text-xs text-muted-foreground/60">
+            Dades locals. Sense connexió amb servidor.
+          </p>
+        </footer>
       </motion.main>
     </div>
   )
