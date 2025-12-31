@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Clock } from 'lucide-react'
 
 interface CountdownProps {
@@ -12,6 +12,7 @@ export function Countdown({ targetTime, onStatusChange }: CountdownProps) {
     const [timeLeft, setTimeLeft] = useState<string>('')
     const [statusColor, setStatusColor] = useState<string>('text-muted-foreground')
     const [isUrgent, setIsUrgent] = useState(false)
+    const lastReportedStatus = useRef<string | null>(null);
 
     useEffect(() => {
         const calculateTimeLeft = () => {
@@ -36,37 +37,45 @@ export function Countdown({ targetTime, onStatusChange }: CountdownProps) {
         const update = () => {
             const { diff, passed } = calculateTimeLeft()
 
+            let newStatus: 'green' | 'orange' | 'red' = 'green';
+
             if (passed || diff < 0) {
                 setTimeLeft('Ara')
                 setStatusColor('text-red-500')
                 setIsUrgent(true)
-                return
-            }
-
-            const minutes = Math.floor(diff / 60000)
-            const hours = Math.floor(minutes / 60)
-            const remainingMinutes = minutes % 60
-
-            if (hours > 0) {
-                setTimeLeft(`${hours}h ${remainingMinutes} min`)
-                setStatusColor('text-green-600 dark:text-green-400')
-                setIsUrgent(false)
-                onStatusChange?.('green')
+                // Treat 'Ara' as red status for parent
+                newStatus = 'red';
             } else {
-                setTimeLeft(`${minutes} min`)
-                if (minutes < 5) {
-                    setStatusColor('text-red-500 font-bold animate-pulse')
-                    setIsUrgent(true)
-                    onStatusChange?.('red')
-                } else if (minutes < 10) {
-                    setStatusColor('text-orange-500 font-semibold')
-                    setIsUrgent(false)
-                    onStatusChange?.('orange')
-                } else {
+                const minutes = Math.floor(diff / 60000)
+                const hours = Math.floor(minutes / 60)
+                const remainingMinutes = minutes % 60
+
+                if (hours > 0) {
+                    setTimeLeft(`${hours}h ${remainingMinutes} min`)
                     setStatusColor('text-green-600 dark:text-green-400')
                     setIsUrgent(false)
-                    onStatusChange?.('green')
+                    newStatus = 'green';
+                } else {
+                    setTimeLeft(`${minutes} min`)
+                    if (minutes < 5) {
+                        setStatusColor('text-red-500 font-bold animate-pulse')
+                        setIsUrgent(true)
+                        newStatus = 'red';
+                    } else if (minutes < 10) {
+                        setStatusColor('text-orange-500 font-semibold')
+                        setIsUrgent(false)
+                        newStatus = 'orange';
+                    } else {
+                        setStatusColor('text-green-600 dark:text-green-400')
+                        setIsUrgent(false)
+                        newStatus = 'green';
+                    }
                 }
+            }
+
+            if (lastReportedStatus.current !== newStatus) {
+                lastReportedStatus.current = newStatus;
+                onStatusChange?.(newStatus);
             }
         }
 

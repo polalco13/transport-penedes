@@ -198,7 +198,7 @@ export default function BusScheduleApp() {
       if (time) {
         if (isToday) {
           const [hours, minutes] = time.split(':').map(Number);
-          if (hours > currentHour || (hours === currentHour && minutes > currentMinute)) {
+          if (hours > currentHour || (hours === currentHour && minutes >= currentMinute)) {
             results.push({ hora_salida: time, dia_semana: selectedDay, ruta_key: routeKey });
           }
         } else {
