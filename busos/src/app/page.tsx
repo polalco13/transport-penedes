@@ -84,11 +84,15 @@ export default function BusScheduleApp() {
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [darkMode, setDarkMode] = useState(true)
+  const [darkMode, setDarkMode] = useState<boolean | undefined>(undefined)
   const [festiuBcn, setFestiuBcn] = useState(false)
   const [busStatuses, setBusStatuses] = useState<Record<string, 'green' | 'orange' | 'red'>>({})
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    // Mark component as mounted
+    setIsMounted(true)
+    
     // Check system preference initially
     if (typeof window !== 'undefined') {
       const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -292,8 +296,10 @@ export default function BusScheduleApp() {
   const toggleDarkMode = () => setDarkMode(!darkMode)
 
   useEffect(() => {
-    if (darkMode) document.documentElement.classList.add('dark')
-    else document.documentElement.classList.remove('dark')
+    if (darkMode !== undefined) {
+      if (darkMode) document.documentElement.classList.add('dark')
+      else document.documentElement.classList.remove('dark')
+    }
   }, [darkMode])
 
   const canSearch = origin && destination
@@ -446,8 +452,17 @@ export default function BusScheduleApp() {
             </div>
 
             <div className="pt-2 text-xs text-muted-foreground">
-              <p>Avui és <span className="font-medium text-foreground">{todayInfo.today}</span> ({todayInfo.dateStr})</p>
-              <p>Horari aplicat: <span className="font-medium text-foreground">{todayInfo.category}</span></p>
+              {isMounted ? (
+                <>
+                  <p>Avui és <span className="font-medium text-foreground">{todayInfo.today}</span> ({todayInfo.dateStr})</p>
+                  <p>Horari aplicat: <span className="font-medium text-foreground">{todayInfo.category}</span></p>
+                </>
+              ) : (
+                <>
+                  <p>Carregant informació del dia...</p>
+                  <p>&nbsp;</p>
+                </>
+              )}
             </div>
           </div>
 
