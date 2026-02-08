@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Clock } from 'lucide-react'
 
 interface CountdownProps {
@@ -12,6 +12,12 @@ export function Countdown({ targetTime, onStatusChange }: CountdownProps) {
     const [timeLeft, setTimeLeft] = useState<string>('')
     const [statusColor, setStatusColor] = useState<string>('text-muted-foreground')
     const [isUrgent, setIsUrgent] = useState(false)
+    const onStatusChangeRef = useRef(onStatusChange)
+    const lastStatusRef = useRef<'green' | 'orange' | 'red' | null>(null)
+
+    useEffect(() => {
+        onStatusChangeRef.current = onStatusChange
+    }, [onStatusChange])
 
     useEffect(() => {
         const calculateTimeLeft = () => {
@@ -35,38 +41,44 @@ export function Countdown({ targetTime, onStatusChange }: CountdownProps) {
 
         const update = () => {
             const { diff, passed } = calculateTimeLeft()
+            let nextStatus: 'green' | 'orange' | 'red'
 
             if (passed || diff < 0) {
                 setTimeLeft('Ara')
                 setStatusColor('text-red-500')
                 setIsUrgent(true)
-                return
-            }
-
-            const minutes = Math.floor(diff / 60000)
-            const hours = Math.floor(minutes / 60)
-            const remainingMinutes = minutes % 60
-
-            if (hours > 0) {
-                setTimeLeft(`${hours}h ${remainingMinutes} min`)
-                setStatusColor('text-green-600 dark:text-green-400')
-                setIsUrgent(false)
-                onStatusChange?.('green')
+                nextStatus = 'red'
             } else {
-                setTimeLeft(`${minutes} min`)
-                if (minutes < 5) {
-                    setStatusColor('text-red-500 font-bold animate-pulse')
-                    setIsUrgent(true)
-                    onStatusChange?.('red')
-                } else if (minutes < 10) {
-                    setStatusColor('text-orange-500 font-semibold')
-                    setIsUrgent(false)
-                    onStatusChange?.('orange')
-                } else {
+                const minutes = Math.floor(diff / 60000)
+                const hours = Math.floor(minutes / 60)
+                const remainingMinutes = minutes % 60
+
+                if (hours > 0) {
+                    setTimeLeft(`${hours}h ${remainingMinutes} min`)
                     setStatusColor('text-green-600 dark:text-green-400')
                     setIsUrgent(false)
-                    onStatusChange?.('green')
+                    nextStatus = 'green'
+                } else {
+                    setTimeLeft(`${minutes} min`)
+                    if (minutes < 5) {
+                        setStatusColor('text-red-500 font-bold animate-pulse')
+                        setIsUrgent(true)
+                        nextStatus = 'red'
+                    } else if (minutes < 10) {
+                        setStatusColor('text-orange-500 font-semibold')
+                        setIsUrgent(false)
+                        nextStatus = 'orange'
+                    } else {
+                        setStatusColor('text-green-600 dark:text-green-400')
+                        setIsUrgent(false)
+                        nextStatus = 'green'
+                    }
                 }
+            }
+
+            if (lastStatusRef.current !== nextStatus) {
+                lastStatusRef.current = nextStatus
+                onStatusChangeRef.current?.(nextStatus)
             }
         }
 
@@ -74,7 +86,7 @@ export function Countdown({ targetTime, onStatusChange }: CountdownProps) {
         const interval = setInterval(update, 10000) // Update every 10 seconds
 
         return () => clearInterval(interval)
-    }, [targetTime, onStatusChange])
+    }, [targetTime])
 
     return (
         <div className={`flex items-center gap-2 ${statusColor}`}>

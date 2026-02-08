@@ -1,81 +1,48 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ArrowLeftRight, Bus, Calendar, Search, MapPin, Moon, Sun, Loader2, Info } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Countdown } from '@/components/Countdown'
+import {
+  DAYS_OF_WEEK,
+  findClosestOrigin,
+  getActiveCalendarKey,
+  getActiveLabel,
+  getCurrentDay,
+  getFullScheduleTimes,
+  getUpcomingBuses,
+  parseHorarisData,
+  type BusResult,
+  type DayOfWeek,
+  type Ruta,
+} from '@/lib/schedule/scheduleService'
 import horarisData from './data/horaris.json'
 import rutes from './data/rutes.json'
 
-// --- Types for new data structure ---
+const fullData = parseHorarisData(horarisData)
+const STORAGE_KEYS = {
+  origin: 'busos:origin',
+  destination: 'busos:destination',
+  day: 'busos:day',
+  festiu: 'busos:festiu',
+  theme: 'busos:theme',
+} as const
 
-type Salida = {
-  [key: string]: string | null;
+const isValidDay = (value: string | null): value is DayOfWeek =>
+  Boolean(value) && DAYS_OF_WEEK.includes(value as DayOfWeek)
+
+const parseBoolean = (value: string | null): boolean | null => {
+  if (value === null) return null
+  if (value === '1' || value === 'true') return true
+  if (value === '0' || value === 'false') return false
+  return null
 }
-
-type Calendario = {
-  descripcion: string;
-  salidas: Salida[];
-}
-
-type Calendarios = {
-  laborables_invierno?: Calendario;
-  laborables_agosto?: Calendario;
-  sabados_laborables?: Calendario;
-  domingos_y_festivos?: Calendario;
-}
-
-type RutaDef = {
-  origen: string;
-  destino: string;
-  paradas_orden: string[];
-  calendarios: Calendarios;
-}
-
-type HorariosAutobus = {
-  [key: string]: RutaDef;
-}
-
-type FullData = {
-  horarios_autobus: HorariosAutobus;
-}
-
-// Cast imported JSON to the correct type
-const fullData = horarisData as FullData;
-
-// --- App Logic ---
-
-const daysOfWeek = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'] as const
-type DayOfWeek = typeof daysOfWeek[number]
-
-type BusResult = {
-  hora_salida: string;
-  dia_semana: DayOfWeek;
-  ruta_key: string;
-}
-
-type Ruta = {
-  id: number;
-  origen: string;
-  destino: string;
-  latitud_origen: number;
-  longitud_origen: number;
-}
-
-const stopKeyMap: { [key: string]: string } = {
-  "Estació d'autobusos Sants": "sants",
-  "Estació d'autobusos de Sants": "sants",
-  "Av. Diagonal (Mª Cristina)": "ma_cristina",
-  "Av. Diagonal (Palau Reial)": "palau_reial",
-  "Av. Diagonal (Zona Universitària)": "zona_uni",
-  "Estació d'autobusos Vilafranca": "vilafranca",
-  "Estació d'autobusos de Vilafranca": "vilafranca"
-};
 
 export default function BusScheduleApp() {
+  const [isInitialized, setIsInitialized] = useState(false)
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Dilluns')
@@ -84,209 +51,185 @@ export default function BusScheduleApp() {
   const [fullSchedule, setFullSchedule] = useState<string[]>([])
   const [noMoreBusesMessage, setNoMoreBusesMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [locationError, setLocationError] = useState('')
   const [darkMode, setDarkMode] = useState(true)
   const [festiuBcn, setFestiuBcn] = useState(false)
   const [busStatuses, setBusStatuses] = useState<Record<string, 'green' | 'orange' | 'red'>>({})
 
-  useEffect(() => {
-    // Check system preference initially
-    if (typeof window !== 'undefined') {
-      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setDarkMode(isDark);
-    }
-  }, [])
-
   // Derived from rutes.json which we updated to contain valid pairs
   const availableOrigins = useMemo(() => Array.from(new Set(rutes.map((ruta: Ruta) => ruta.origen))), [])
+  const getDestinationsForOrigin = useCallback(
+    (originValue: string) => Array.from(new Set(rutes.filter((ruta: Ruta) => ruta.origen === originValue).map((ruta) => ruta.destino))),
+    []
+  )
 
   const availableDestinations = useMemo(() => {
     if (!origin) return []
-    return Array.from(new Set(rutes.filter((ruta: Ruta) => ruta.origen === origin).map(ruta => ruta.destino)))
-  }, [origin])
+    return getDestinationsForOrigin(origin)
+  }, [origin, getDestinationsForOrigin])
 
-  const handleSwap = useCallback(() => {
-    const tempOrigin = origin;
-    const tempDestination = destination;
-    setOrigin(tempDestination);
-    setDestination(tempOrigin);
-  }, [origin, destination]);
-
-  useEffect(() => {
-    const currentDate = new Date()
-    const today = daysOfWeek[currentDate.getDay()] as DayOfWeek
-    setSelectedDay(today)
-  }, [])
-
-  useEffect(() => {
-    setDestination('')
+  const resetSearchState = useCallback(() => {
     setSchedule([])
     setFullSchedule([])
     setNoMoreBusesMessage('')
     setShowFullSchedule(false)
-  }, [origin])
+    setBusStatuses({})
+  }, [])
 
-  // Helper to get the active calendar key
-  const getActiveCalendarKey = useCallback((day: DayOfWeek, date: Date): keyof Calendarios => {
-    if (day === 'Diumenge') return 'domingos_y_festivos';
-    if (day === 'Dissabte') return 'sabados_laborables';
+  const handleOriginChange = useCallback((newOrigin: string) => {
+    setOrigin(newOrigin)
+    setDestination('')
+    resetSearchState()
+  }, [resetSearchState])
 
-    if (festiuBcn) return 'domingos_y_festivos';
+  const handleSwap = useCallback(() => {
+    if (!origin || !destination) return
+    const tempOrigin = origin
+    const tempDestination = destination
+    setOrigin(tempDestination)
+    setDestination(tempOrigin)
+    resetSearchState()
+  }, [origin, destination, resetSearchState])
 
-    const month = date.getMonth() + 1; // 1..12
-    if (month === 8) return 'laborables_agosto';
+  const handleResetFilters = useCallback(() => {
+    setOrigin('')
+    setDestination('')
+    setSelectedDay(getCurrentDay())
+    setFestiuBcn(false)
+    setLocationError('')
+    resetSearchState()
+  }, [resetSearchState])
 
-    return 'laborables_invierno';
-  }, [festiuBcn]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return
 
-  const getActiveLabel = (key: keyof Calendarios): string => {
-    switch (key) {
-      case 'laborables_invierno': return 'Feiners (hivern)';
-      case 'laborables_agosto': return 'Feiners (agost)';
-      case 'sabados_laborables': return 'Dissabtes feiners';
-      case 'domingos_y_festivos': return 'Diumenges i festius';
-      default: return key;
-    }
-  }
+    const query = new URLSearchParams(window.location.search)
+    const queryOrigin = query.get('o')
+    const queryDestination = query.get('d')
+    const queryDay = query.get('day')
+    const queryFestiu = query.get('festiu')
+    const queryTheme = query.get('theme')
 
-  const findRouteKey = useCallback((origin: string, destination: string): string | null => {
-    for (const [key, ruta] of Object.entries(fullData.horarios_autobus)) {
-      const originIndex = ruta.paradas_orden.indexOf(origin);
-      const destIndex = ruta.paradas_orden.indexOf(destination);
+    const storedOrigin = localStorage.getItem(STORAGE_KEYS.origin)
+    const storedDestination = localStorage.getItem(STORAGE_KEYS.destination)
+    const storedDay = localStorage.getItem(STORAGE_KEYS.day)
+    const storedFestiu = localStorage.getItem(STORAGE_KEYS.festiu)
+    const storedTheme = localStorage.getItem(STORAGE_KEYS.theme)
 
-      if (originIndex !== -1 && destIndex !== -1 && originIndex < destIndex) {
-        return key;
-      }
-    }
-    return null;
-  }, []);
+    const preferredOrigin = queryOrigin ?? storedOrigin
+    const initialOrigin = preferredOrigin && availableOrigins.includes(preferredOrigin) ? preferredOrigin : ''
+
+    const destinationOptions = initialOrigin ? getDestinationsForOrigin(initialOrigin) : []
+    const preferredDestination = queryDestination ?? storedDestination
+    const initialDestination = preferredDestination && destinationOptions.includes(preferredDestination) ? preferredDestination : ''
+
+    const preferredDay = queryDay ?? storedDay
+    const initialDay = isValidDay(preferredDay) ? preferredDay : getCurrentDay()
+
+    const festiu = parseBoolean(queryFestiu ?? storedFestiu) ?? false
+
+    const preferredTheme = queryTheme ?? storedTheme
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const initialDarkMode = preferredTheme === 'dark' ? true : preferredTheme === 'light' ? false : systemPrefersDark
+
+    setOrigin(initialOrigin)
+    setDestination(initialDestination)
+    setSelectedDay(initialDay)
+    setFestiuBcn(festiu)
+    setDarkMode(initialDarkMode)
+    setIsInitialized(true)
+  }, [availableOrigins, getDestinationsForOrigin])
 
   const handleSearch = () => {
-    const currentDate = new Date()
-    const currentHour = currentDate.getHours()
-    const currentMinute = currentDate.getMinutes()
+    resetSearchState()
+    const { buses, message } = getUpcomingBuses({
+      data: fullData,
+      origin,
+      destination,
+      selectedDay,
+      festiuBcn,
+    })
 
-    const isToday = selectedDay === daysOfWeek[currentDate.getDay()];
-    const calendarKey = getActiveCalendarKey(selectedDay, currentDate);
-
-    const routeKey = findRouteKey(origin, destination);
-
-    if (!routeKey) {
-      setNoMoreBusesMessage("No s'ha trobat cap ruta per a aquest trajecte");
-      setSchedule([]);
-      return;
+    if (message) {
+      setNoMoreBusesMessage(message)
+      return
     }
 
-    const ruta = fullData.horarios_autobus[routeKey];
-    const calendar = ruta.calendarios[calendarKey];
-
-    if (!calendar) {
-      setNoMoreBusesMessage("No hi ha horaris per a aquest dia");
-      setSchedule([]);
-      return;
-    }
-
-    const originKey = stopKeyMap[origin];
-    if (!originKey) {
-      setNoMoreBusesMessage("Error intern: parada desconeguda");
-      return;
-    }
-
-    const results: BusResult[] = [];
-
-    calendar.salidas.forEach(salida => {
-      const time = salida[originKey];
-      if (time) {
-        if (isToday) {
-          const [hours, minutes] = time.split(':').map(Number);
-          if (hours > currentHour || (hours === currentHour && minutes > currentMinute)) {
-            results.push({ hora_salida: time, dia_semana: selectedDay, ruta_key: routeKey });
-          }
-        } else {
-          results.push({ hora_salida: time, dia_semana: selectedDay, ruta_key: routeKey });
-        }
-      }
-    });
-
-    results.sort((a, b) => {
-      const [aHours, aMinutes] = a.hora_salida.split(':').map(Number);
-      const [bHours, bMinutes] = b.hora_salida.split(':').map(Number);
-      return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes);
-    });
-
-    const nextThreeBuses = results.slice(0, 3);
-
-    if (nextThreeBuses.length === 0) {
-      setNoMoreBusesMessage(isToday ? 'No queden més autobusos disponibles per avui' : 'No hi ha autobusos disponibles');
-      setSchedule([]);
-    } else {
-      setNoMoreBusesMessage('');
-      setSchedule(nextThreeBuses);
-    }
-
-    setShowFullSchedule(false);
+    setSchedule(buses)
   }
 
   const handleShowFullSchedule = useCallback(() => {
-    const routeKey = findRouteKey(origin, destination);
-    if (!routeKey) {
-      setFullSchedule([]);
-      return;
+    if (showFullSchedule) {
+      setShowFullSchedule(false)
+      return
     }
 
-    const refDate = new Date();
-    const calendarKey = getActiveCalendarKey(selectedDay, refDate);
-    const ruta = fullData.horarios_autobus[routeKey];
-    const calendar = ruta.calendarios[calendarKey];
-
-    if (!calendar) {
-      setFullSchedule([]);
-      setShowFullSchedule(!showFullSchedule);
-      return;
+    if (!origin || !destination) {
+      setNoMoreBusesMessage("Selecciona origen i destinació per veure l'horari complet")
+      setFullSchedule([])
+      setShowFullSchedule(false)
+      return
     }
 
-    const originKey = stopKeyMap[origin];
-    if (!originKey) {
-      setFullSchedule([]);
-      return;
+    const { times, message } = getFullScheduleTimes({
+      data: fullData,
+      origin,
+      destination,
+      selectedDay,
+      festiuBcn,
+    })
+
+    if (message) {
+      setNoMoreBusesMessage(message)
+      setFullSchedule([])
+      setShowFullSchedule(false)
+      return
     }
 
-    const times = calendar.salidas
-      .map(s => s[originKey])
-      .filter((t): t is string => t !== null && t !== undefined)
-      .sort((a, b) => {
-        const [aHours, aMinutes] = a.split(':').map(Number);
-        const [bHours, bMinutes] = b.split(':').map(Number);
-        return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes);
-      });
+    setNoMoreBusesMessage('')
+    setFullSchedule(times)
+    setShowFullSchedule(true)
 
-    setFullSchedule(times);
-    setShowFullSchedule(!showFullSchedule);
-
-  }, [origin, destination, selectedDay, showFullSchedule, findRouteKey, getActiveCalendarKey]);
+  }, [origin, destination, selectedDay, festiuBcn, showFullSchedule]);
 
   const detectLocation = () => {
     setLoading(true)
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        const { latitude, longitude } = position.coords
-        let closestOrigin = ''
-        let minDistance = Infinity
+    setLocationError('')
 
-        rutes.forEach((ruta: Ruta) => {
-          const distance = Math.sqrt(
-            Math.pow(ruta.latitud_origen - latitude, 2) + Math.pow(ruta.longitud_origen - longitude, 2)
-          )
-          if (distance < minDistance) {
-            minDistance = distance
-            closestOrigin = ruta.origen
-          }
-        })
-        setOrigin(closestOrigin)
-        setLoading(false)
-      }, () => setLoading(false))
-    } else {
+    if (!navigator.geolocation) {
+      setLocationError('El teu navegador no permet geolocalització')
       setLoading(false)
+      return
     }
+
+    navigator.geolocation.getCurrentPosition((position) => {
+      const { latitude, longitude } = position.coords
+      const closestOrigin = findClosestOrigin(rutes as Ruta[], latitude, longitude)
+
+      if (!closestOrigin) {
+        setLocationError("No s'ha pogut determinar una parada propera")
+        setLoading(false)
+        return
+      }
+
+      setOrigin(closestOrigin)
+      setDestination('')
+      resetSearchState()
+      setLoading(false)
+    }, (error) => {
+      const geolocationMessage = {
+        1: "Has denegat l'accés a la ubicació",
+        2: "No s'ha pogut obtenir la ubicació",
+        3: "S'ha esgotat el temps per obtenir la ubicació",
+      }[error.code] ?? "No s'ha pogut obtenir la ubicació"
+
+      setLocationError(geolocationMessage)
+      setLoading(false)
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000,
+    })
   }
 
   const toggleDarkMode = () => setDarkMode(!darkMode)
@@ -294,36 +237,85 @@ export default function BusScheduleApp() {
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark')
     else document.documentElement.classList.remove('dark')
-  }, [darkMode])
+    if (typeof window !== 'undefined' && isInitialized) {
+      localStorage.setItem(STORAGE_KEYS.theme, darkMode ? 'dark' : 'light')
+    }
+  }, [darkMode, isInitialized])
 
-  const canSearch = origin && destination
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isInitialized) return
 
-  const todayInfo = useMemo(() => {
+    if (origin) localStorage.setItem(STORAGE_KEYS.origin, origin)
+    else localStorage.removeItem(STORAGE_KEYS.origin)
+
+    if (destination) localStorage.setItem(STORAGE_KEYS.destination, destination)
+    else localStorage.removeItem(STORAGE_KEYS.destination)
+
+    localStorage.setItem(STORAGE_KEYS.day, selectedDay)
+    localStorage.setItem(STORAGE_KEYS.festiu, festiuBcn ? '1' : '0')
+
+    const params = new URLSearchParams(window.location.search)
+
+    if (origin) params.set('o', origin)
+    else params.delete('o')
+
+    if (destination) params.set('d', destination)
+    else params.delete('d')
+
+    params.set('day', selectedDay)
+
+    if (festiuBcn) params.set('festiu', '1')
+    else params.delete('festiu')
+
+    const nextQuery = params.toString()
+    const nextUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname
+    const currentUrl = `${window.location.pathname}${window.location.search}`
+
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState({}, '', nextUrl)
+    }
+  }, [origin, destination, selectedDay, festiuBcn, isInitialized])
+
+  const canSearch = Boolean(origin && destination)
+  const canReset = Boolean(origin || destination || festiuBcn || selectedDay !== getCurrentDay())
+  const routeSummary = origin && destination
+    ? `${origin} → ${destination}`
+    : 'Selecciona un origen i una destinació'
+
+  const dayInfo = useMemo(() => {
     const now = new Date()
-    const today = daysOfWeek[now.getDay()] as DayOfWeek
-    const key = getActiveCalendarKey(today, now)
-    const category = getActiveLabel(key)
+    const today = getCurrentDay(now)
+    const selectedKey = getActiveCalendarKey(selectedDay, now, festiuBcn)
     const dateStr = now.toLocaleDateString('ca-ES', { day: '2-digit', month: 'long' })
-    return { today, category, dateStr }
-  }, [getActiveCalendarKey])
+    return {
+      today,
+      dateStr,
+      isSelectedToday: selectedDay === today,
+      selectedCategory: getActiveLabel(selectedKey),
+    }
+  }, [selectedDay, festiuBcn])
 
-  const getBadgeStyles = (status: 'green' | 'orange' | 'red') => {
+  const getBadgeStyles = (status: 'green' | 'orange' | 'red' | 'scheduled') => {
     switch (status) {
       case 'red':
         return 'bg-red-500/10 text-red-600 dark:text-red-400'
       case 'orange':
         return 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+      case 'scheduled':
+        return 'bg-slate-500/10 text-slate-700 dark:text-slate-300'
       default:
         return 'bg-green-500/10 text-green-600 dark:text-green-400'
     }
   }
 
-  const getBadgeText = (status: 'green' | 'orange' | 'red') => {
+  const getBadgeText = (status: 'green' | 'orange' | 'red' | 'scheduled') => {
     switch (status) {
       case 'red':
         return 'Imminent'
       case 'orange':
         return 'Aviat'
+      case 'scheduled':
+        return 'Programat'
       default:
         return 'En hora'
     }
@@ -331,19 +323,13 @@ export default function BusScheduleApp() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground selection:bg-primary/20">
-      {/* Dynamic Background */}
+      <div className="fixed inset-0 -z-20 app-mesh-background" />
       <div className="fixed inset-0 -z-10">
-        <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] rounded-full bg-primary/20 blur-[120px] mix-blend-screen dark:bg-primary/10 dark:mix-blend-normal animate-pulse-slow" />
-        <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-blue-500/20 blur-[120px] mix-blend-screen dark:bg-blue-500/10 dark:mix-blend-normal animate-pulse-slow delay-1000" />
+        <div className="absolute top-[-8%] left-[-8%] h-[480px] w-[480px] rounded-full bg-primary/20 blur-[120px] dark:bg-primary/10 animate-pulse-slow" />
+        <div className="absolute bottom-[-8%] right-[-8%] h-[520px] w-[520px] rounded-full bg-cyan-500/20 blur-[130px] dark:bg-cyan-400/10 animate-pulse-slow delay-1000" />
       </div>
 
-      <motion.main
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-8 sm:px-6"
-      >
-        {/* Header */}
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-8 sm:px-6 app-fade-in">
         <header className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary backdrop-blur-sm">
@@ -352,6 +338,9 @@ export default function BusScheduleApp() {
             <div>
               <h1 className="text-xl font-bold tracking-tight">Busos Penedès</h1>
               <p className="text-xs text-muted-foreground">Horaris actualitzats</p>
+              <p className="mt-1 inline-flex max-w-[270px] truncate rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+                {routeSummary}
+              </p>
             </div>
           </div>
           <Button
@@ -359,20 +348,24 @@ export default function BusScheduleApp() {
             variant="ghost"
             size="icon"
             className="rounded-full hover:bg-primary/5"
+            aria-label={darkMode ? 'Canvia a mode clar' : 'Canvia a mode fosc'}
+            title={darkMode ? 'Canvia a mode clar' : 'Canvia a mode fosc'}
           >
             {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
         </header>
 
-        {/* Main Card */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/60 p-6 shadow-2xl backdrop-blur-xl dark:border-white/5 dark:bg-black/40">
+        <div className="relative overflow-hidden rounded-3xl border border-white/40 bg-white/70 p-6 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-black/45">
+          <div className="mb-6 rounded-2xl border border-border/60 bg-background/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Consulta activa</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{routeSummary}</p>
+          </div>
 
-          {/* Route Selection */}
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground ml-1">Origen</label>
-              <Select onValueChange={setOrigin} value={origin}>
-                <SelectTrigger className="h-12 rounded-2xl border-0 bg-background/50 px-4 shadow-sm backdrop-blur-sm transition-all hover:bg-background/80 focus:ring-2 focus:ring-primary/20">
+              <Select onValueChange={handleOriginChange} value={origin}>
+                <SelectTrigger aria-label="Selecciona origen" className="h-12 rounded-2xl border-0 bg-background/50 px-4 shadow-sm backdrop-blur-sm transition-all hover:bg-background/80 focus:ring-2 focus:ring-primary/20">
                   <SelectValue placeholder="Selecciona origen" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-white/20 backdrop-blur-xl">
@@ -394,6 +387,8 @@ export default function BusScheduleApp() {
                 variant="outline"
                 size="icon"
                 className="relative h-10 w-10 rounded-full border border-border/40 bg-background shadow-sm transition-transform hover:scale-110 hover:bg-background"
+                aria-label="Intercanvia origen i destinació"
+                title="Intercanvia origen i destinació"
               >
                 <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
               </Button>
@@ -402,7 +397,7 @@ export default function BusScheduleApp() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground ml-1">Destinació</label>
               <Select onValueChange={setDestination} value={destination} disabled={!origin}>
-                <SelectTrigger className="h-12 rounded-2xl border-0 bg-background/50 px-4 shadow-sm backdrop-blur-sm transition-all hover:bg-background/80 focus:ring-2 focus:ring-primary/20">
+                <SelectTrigger aria-label="Selecciona destinació" className="h-12 rounded-2xl border-0 bg-background/50 px-4 shadow-sm backdrop-blur-sm transition-all hover:bg-background/80 focus:ring-2 focus:ring-primary/20">
                   <SelectValue placeholder={origin ? 'Selecciona destinació' : 'Primer escull origen'} />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-white/20 backdrop-blur-xl">
@@ -416,19 +411,18 @@ export default function BusScheduleApp() {
             </div>
           </div>
 
-          {/* Settings & Info */}
-          <div className="mt-6 space-y-4 rounded-2xl bg-primary/5 p-4">
+          <div className="mt-6 space-y-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Calendar className="h-4 w-4 text-primary" />
                 <span>Dia del viatge</span>
               </div>
               <Select onValueChange={(value) => setSelectedDay(value as DayOfWeek)} value={selectedDay}>
-                <SelectTrigger className="h-9 w-[140px] rounded-lg border-0 bg-background/50 shadow-none backdrop-blur-sm">
+                <SelectTrigger aria-label="Selecciona dia del viatge" className="h-9 w-[140px] rounded-lg border-0 bg-background/50 shadow-none backdrop-blur-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {daysOfWeek.map((day) => (
+                  {DAYS_OF_WEEK.map((day) => (
                     <SelectItem key={day} value={day} className="rounded-lg">
                       {day}
                     </SelectItem>
@@ -442,19 +436,22 @@ export default function BusScheduleApp() {
                 <Info className="h-4 w-4 text-primary" />
                 <span>Festiu a BCN?</span>
               </div>
-              <Switch checked={festiuBcn} onCheckedChange={setFestiuBcn} />
+              <Switch aria-label="Marcar com festiu a Barcelona" checked={festiuBcn} onCheckedChange={setFestiuBcn} />
             </div>
 
             <div className="pt-2 text-xs text-muted-foreground">
-              <p>Avui és <span className="font-medium text-foreground">{todayInfo.today}</span> ({todayInfo.dateStr})</p>
-              <p>Horari aplicat: <span className="font-medium text-foreground">{todayInfo.category}</span></p>
+              <p>Avui és <span className="font-medium text-foreground">{dayInfo.today}</span> ({dayInfo.dateStr})</p>
+              <p>Consulta: <span className="font-medium text-foreground">{selectedDay}</span> · <span className="font-medium text-foreground">{dayInfo.selectedCategory}</span></p>
+              {!dayInfo.isSelectedToday && (
+                <p>Per dies futurs només es mostra l&apos;hora programada (sense compte enrere).</p>
+              )}
             </div>
           </div>
 
-          {/* Actions */}
           <div className="mt-6 grid gap-3">
             <Button
               onClick={handleSearch}
+              aria-label="Cerca els propers busos"
               className="h-12 w-full rounded-2xl bg-primary text-base font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98]"
               disabled={!canSearch}
             >
@@ -467,6 +464,7 @@ export default function BusScheduleApp() {
                 onClick={handleShowFullSchedule}
                 variant="secondary"
                 className="h-10 rounded-xl bg-secondary/50 hover:bg-secondary/80"
+                disabled={!canSearch}
               >
                 {showFullSchedule ? 'Amagar Tot' : 'Veure Tot'}
               </Button>
@@ -480,29 +478,34 @@ export default function BusScheduleApp() {
                 <span className="ml-2">Ubicació</span>
               </Button>
             </div>
+            <Button
+              onClick={handleResetFilters}
+              variant="ghost"
+              className="h-9 rounded-xl border border-border/50 bg-background/40 text-xs hover:bg-background/70"
+              disabled={!canReset}
+            >
+              Reinicia filtres
+            </Button>
+            {locationError && (
+              <p role="alert" aria-live="assertive" className="px-1 text-xs text-red-600 dark:text-red-400">{locationError}</p>
+            )}
           </div>
-
         </div>
 
-        {/* Results Section */}
         <div className="mt-6 space-y-4">
-          <AnimatePresence mode="wait">
-            {schedule.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-3"
-              >
-                <h3 className="px-1 text-sm font-medium text-muted-foreground">Propers busos</h3>
+          {schedule.length > 0 && (
+            <div className="space-y-3 app-fade-up">
+              <h3 className="px-1 text-sm font-medium text-muted-foreground">Propers busos</h3>
 
-                {schedule.map((bus, index) => (
-                  <motion.div
+              {schedule.map((bus, index) => {
+                const statusKey = `${bus.hora_salida}-${index}`
+                const badgeStatus = bus.isToday ? (busStatuses[statusKey] || 'green') : 'scheduled'
+
+                return (
+                  <div
                     key={`${bus.hora_salida}-${index}`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/40 px-5 py-4 shadow-sm backdrop-blur-md dark:bg-white/5"
+                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/45 px-5 py-4 shadow-sm backdrop-blur-md dark:bg-white/5 app-fade-up"
+                    style={{ animationDelay: `${index * 70}ms` }}
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -510,55 +513,62 @@ export default function BusScheduleApp() {
                       </div>
                       <div>
                         <div className="flex items-baseline gap-2">
-                          <Countdown 
-                            targetTime={bus.hora_salida} 
-                            onStatusChange={(status) => setBusStatuses(prev => ({ ...prev, [`${bus.hora_salida}-${index}`]: status }))}
-                          />
-                          <span className="text-xs text-muted-foreground">({bus.hora_salida})</span>
+                          {bus.isToday ? (
+                            <>
+                              <Countdown
+                                targetTime={bus.hora_salida}
+                                onStatusChange={(status) =>
+                                  setBusStatuses((prev) => {
+                                    if (prev[statusKey] === status) return prev
+                                    return { ...prev, [statusKey]: status }
+                                  })
+                                }
+                              />
+                              <span className="text-xs text-muted-foreground">({bus.hora_salida})</span>
+                            </>
+                          ) : (
+                            <span className="text-lg font-bold tabular-nums tracking-tight">{bus.hora_salida}</span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">{bus.dia_semana}</p>
                       </div>
                     </div>
-                    <div className={`rounded-full px-3 py-1 text-xs font-medium ${getBadgeStyles(busStatuses[`${bus.hora_salida}-${index}`] || 'green')}`}>
-                      {getBadgeText(busStatuses[`${bus.hora_salida}-${index}`] || 'green')}
+                    <div className={`rounded-full px-3 py-1 text-xs font-medium ${getBadgeStyles(badgeStatus)}`}>
+                      {getBadgeText(badgeStatus)}
                     </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {noMoreBusesMessage && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-2xl border border-dashed border-muted-foreground/25 bg-muted/30 p-6 text-center"
-            >
-              <p className="text-sm text-muted-foreground">{noMoreBusesMessage}</p>
-            </motion.div>
+                  </div>
+                )
+              })}
+            </div>
           )}
 
-          <AnimatePresence>
-            {showFullSchedule && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden rounded-3xl border border-white/20 bg-white/60 shadow-xl backdrop-blur-xl dark:bg-black/40"
-              >
-                <div className="p-6">
-                  <h3 className="mb-4 font-semibold">Horari Complet</h3>
-                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                    {fullSchedule.map((time, i) => (
-                      <div key={i} className="rounded-lg bg-background/50 py-2 text-center text-sm font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors cursor-default">
-                        {time}
-                      </div>
-                    ))}
-                  </div>
+          {noMoreBusesMessage && (
+            <div role="status" aria-live="polite" className="rounded-2xl border border-dashed border-muted-foreground/25 bg-muted/30 p-6 text-center app-fade-up">
+              <p className="text-sm text-muted-foreground">{noMoreBusesMessage}</p>
+            </div>
+          )}
+
+          {schedule.length === 0 && !noMoreBusesMessage && !showFullSchedule && (
+            <div className="rounded-2xl border border-border/60 bg-background/60 p-6 text-center app-fade-up">
+              <p className="text-sm font-medium text-foreground">Escull trajecte i prem Cercar Busos</p>
+              <p className="mt-1 text-xs text-muted-foreground">També pots usar Ubicació per seleccionar l&apos;origen automàticament.</p>
+            </div>
+          )}
+
+          {showFullSchedule && (
+            <div className="overflow-hidden rounded-3xl border border-white/30 bg-white/60 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-black/40 app-fade-up">
+              <div className="p-6">
+                <h3 className="mb-4 font-semibold">Horari Complet</h3>
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                  {fullSchedule.map((time, i) => (
+                    <div key={i} className="rounded-lg bg-background/50 py-2 text-center text-sm font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary">
+                      {time}
+                    </div>
+                  ))}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </div>
+          )}
         </div>
 
         <footer className="mt-12 text-center">
@@ -566,7 +576,7 @@ export default function BusScheduleApp() {
             Dades locals. Sense connexió amb servidor.
           </p>
         </footer>
-      </motion.main>
+      </main>
     </div>
   )
 }

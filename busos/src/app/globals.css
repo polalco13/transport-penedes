@@ -6,6 +6,49 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .app-mesh-background {
+    background:
+      radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.12), transparent 42%),
+      radial-gradient(circle at 80% 80%, hsl(190 90% 45% / 0.1), transparent 40%),
+      linear-gradient(135deg, hsl(var(--background)), hsl(var(--background)));
+  }
+
+  .app-fade-in {
+    animation: app-fade-in 420ms ease-out both;
+  }
+
+  .app-fade-up {
+    animation: app-fade-up 380ms ease-out both;
+  }
+}
+
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-fade-in,
+  .app-fade-up,
+  .animate-pulse-slow {
+    animation: none !important;
+  }
 }
 
 @layer base {
